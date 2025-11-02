@@ -1,0 +1,476 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum KycStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum InvestmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  PROFIT_SHARE
+  MANAGEMENT_FEE
+  RESERVE_CONTRIBUTION
+  AD_REWARD
+  AD_COMMISSION
+  REVERSAL
+  ADJUSTMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  SETTLED
+  FAILED
+  CANCELLED
+}
+
+enum NotificationType {
+  SYSTEM
+  FINANCIAL
+  TASK
+  ALERT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+enum RevenueStreamType {
+  ALGO_TRADING
+  CRYPTO_STAKING
+  COPY_TRADING
+  ADVERTISING
+  MANAGEMENT_FEES
+}
+
+enum KYCDocumentType {
+  GOVERNMENT_ID
+  ADDRESS_PROOF
+  SELFIE
+  BUSINESS_DOCUMENT
+}
+
+enum KycDocumentStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum AdTaskType {
+  VIDEO
+  SURVEY
+  INSTALL
+  OFFERWALL
+}
+
+enum AdTaskStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum AdTaskCompletionStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum PlanTier {
+  STARTER
+  PRO
+  ELITE
+}
+
+model User {
+  id                  String                 @id @default(cuid())
+  email               String                 @unique
+  phone               String?                @unique
+  passwordHash        String?
+  role                UserRole               @default(USER)
+  status              UserStatus             @default(PENDING)
+  kycStatus           KycStatus              @default(UNVERIFIED)
+  investedBalance     Decimal                @default(0) @db.Decimal(18, 4)
+  withdrawalBalance   Decimal                @default(0) @db.Decimal(18, 4)
+  totalEarnings       Decimal                @default(0) @db.Decimal(18, 4)
+  currentPlan         Plan?                  @relation(fields: [currentPlanId], references: [id])
+  currentPlanId       String?
+  planJoinedAt        DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  accounts            Account[]
+  sessions            Session[]
+  investments         Investment[]
+  transactions        Transaction[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]             @relation("AuditActor")
+  verifiedDocuments   KYCDocument[]          @relation("VerifiedBy")
+  kycDocuments        KYCDocument[]          @relation("DocumentOwner")
+  adTaskCompletions   AdTaskCompletion[]
+  adStats             UserAdStats?
+  aiConversations     AIConversation[]
+  profitHistory       ProfitHistory[]
+  notificationTokens  NotificationToken[]
+
+  @@index([role])
+  @@index([status])
+  @@index([kycStatus])
+}
+
+model Account {
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Plan {
+  id              String        @id @default(cuid())
+  name            String        @unique
+  tier            PlanTier      @unique
+  description     String?
+  minDeposit      Decimal       @default(0) @db.Decimal(18, 4)
+  maxDeposit      Decimal?      @db.Decimal(18, 4)
+  minROI          Float
+  maxROI          Float
+  durationWeeks   Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  users           User[]
+  investments     Investment[]
+  planAllocations PlanAllocation[]
+  adTasks         AdTask[]
+  profitHistory   ProfitHistory[]
+
+  @@index([tier])
+}
+
+model Investment {
+  id                String            @id @default(cuid())
+  userId            String
+  planId            String
+  amount            Decimal           @db.Decimal(18, 4)
+  status            InvestmentStatus  @default(PENDING)
+  initiatedAt       DateTime          @default(now())
+  approvedAt        DateTime?
+  activatedAt       DateTime?
+  completedAt       DateTime?
+  lockedUntil       DateTime?
+  nextPayoutAt      DateTime?
+  autoReinvest      Boolean           @default(false)
+  metadata          Json?
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              Plan              @relation(fields: [planId], references: [id])
+  transactions      Transaction[]
+  profitHistory     ProfitHistory[]
+
+  @@index([userId, status])
+  @@index([planId])
+}
+
+model Transaction {
+  id                   String               @id @default(cuid())
+  userId               String
+  investmentId         String?
+  adTaskCompletionId   String?
+  type                 TransactionType
+  status               TransactionStatus    @default(PENDING)
+  amount               Decimal              @db.Decimal(18, 4)
+  feeAmount            Decimal              @default(0) @db.Decimal(18, 4)
+  balanceBefore        Decimal              @default(0) @db.Decimal(18, 4)
+  balanceAfter         Decimal              @default(0) @db.Decimal(18, 4)
+  reference            String?              @unique
+  metadata             Json?
+  performedById        String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investment           Investment?          @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+  adTaskCompletion     AdTaskCompletion?    @relation(fields: [adTaskCompletionId], references: [id], onDelete: SetNull)
+  performedBy          User?                @relation("TransactionPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
+  reserveBufferEntry   ReserveBuffer[]
+
+  @@index([userId, type])
+  @@index([investmentId])
+  @@index([status])
+}
+
+model Notification {
+  id              String               @id @default(cuid())
+  userId          String?
+  type            NotificationType     @default(SYSTEM)
+  channel         NotificationChannel  @default(IN_APP)
+  title           String
+  message         String
+  data            Json?
+  readAt          DateTime?
+  dispatchedAt    DateTime?            @default(now())
+  expiresAt       DateTime?
+  createdAt       DateTime             @default(now())
+
+  user            User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([type])
+}
+
+model NotificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  action      String
+  entityType  String
+  entityId    String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+}
+
+model RevenueStream {
+  id                   String              @id @default(cuid())
+  type                 RevenueStreamType   @unique
+  name                 String              @unique
+  description          String?
+  allocationTargetPct  Float
+  totalRevenue         Decimal             @default(0) @db.Decimal(18, 4)
+  active               Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  planAllocations      PlanAllocation[]
+  profitHistory        ProfitHistory[]
+}
+
+model PlanAllocation {
+  id              String        @id @default(cuid())
+  planId          String
+  revenueStreamId String
+  allocationPct   Float
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  plan            Plan          @relation(fields: [planId], references: [id], onDelete: Cascade)
+  revenueStream   RevenueStream @relation(fields: [revenueStreamId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, revenueStreamId])
+  @@index([revenueStreamId])
+}
+
+model KYCDocument {
+  id             String            @id @default(cuid())
+  userId         String
+  type           KYCDocumentType
+  status         KycDocumentStatus @default(SUBMITTED)
+  documentUrl    String
+  metadata       Json?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  user           User              @relation("DocumentOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy     User?             @relation("VerifiedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([reviewedById])
+}
+
+model ReserveBuffer {
+  id              String      @id @default(cuid())
+  transactionId   String
+  amount          Decimal     @db.Decimal(18, 4)
+  createdAt       DateTime    @default(now())
+
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model AdTask {
+  id                 String        @id @default(cuid())
+  title              String
+  description        String?
+  type               AdTaskType
+  status             AdTaskStatus     @default(DRAFT)
+  rewardAmount       Decimal          @db.Decimal(18, 4)
+  commissionRate     Float            @default(0.3)
+  dailyLimit         Int              @default(0)
+  cooldownHours      Int              @default(0)
+  minTier            PlanTier         @default(STARTER)
+  totalBudget        Decimal?         @db.Decimal(18, 4)
+  remainingBudget    Decimal?         @db.Decimal(18, 4)
+  startAt            DateTime?
+  endAt              DateTime?
+  targetingMeta      Json?
+  createdById        String?
+  planId             String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  createdBy          User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  plan               Plan?            @relation(fields: [planId], references: [id], onDelete: SetNull)
+  completions        AdTaskCompletion[]
+
+  @@index([status])
+  @@index([minTier])
+  @@index([planId])
+}
+
+model AdTaskCompletion {
+  id                String                    @id @default(cuid())
+  userId            String
+  adTaskId          String
+  status            AdTaskCompletionStatus    @default(PENDING_REVIEW)
+  rewardAmount      Decimal                   @db.Decimal(18, 4)
+  commissionAmount  Decimal                   @default(0) @db.Decimal(18, 4)
+  proofUrl          String?
+  submissionData    Json?
+  completedAt       DateTime                  @default(now())
+  reviewedAt        DateTime?
+  reviewedById      String?
+  transactionId     String?
+
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adTask            AdTask                    @relation(fields: [adTaskId], references: [id], onDelete: Cascade)
+  reviewedBy        User?                     @relation("AdTaskReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  transaction       Transaction?              @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, adTaskId, completedAt])
+  @@index([status])
+  @@index([transactionId])
+}
+
+model UserAdStats {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  totalEarned          Decimal  @default(0) @db.Decimal(18, 4)
+  totalCommissionPaid  Decimal  @default(0) @db.Decimal(18, 4)
+  tasksCompleted       Int      @default(0)
+  dailyCompletionCount Int      @default(0)
+  lastResetAt          DateTime?
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AIConversation {
+  id                String   @id @default(cuid())
+  userId            String
+  sessionId         String?  @unique
+  contextSummary    String?
+  messages          Json
+  metadata          Json?
+  lastInteractionAt DateTime @default(now())
+  resolved          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, resolved])
+}
+
+model ProfitHistory {
+  id                String      @id @default(cuid())
+  userId            String
+  investmentId      String?
+  planId            String
+  revenueStreamId   String?
+  payoutBatchId     String?
+  grossAmount       Decimal     @db.Decimal(18, 4)
+  netAmount         Decimal     @db.Decimal(18, 4)
+  managementFee     Decimal     @db.Decimal(18, 4)
+  roiPercentage     Float
+  distributionDate  DateTime    @default(now())
+  notes             String?
+
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investment        Investment? @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+  plan              Plan        @relation(fields: [planId], references: [id])
+  revenueStream     RevenueStream? @relation(fields: [revenueStreamId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([investmentId])
+  @@index([planId])
+  @@index([distributionDate])
+}
