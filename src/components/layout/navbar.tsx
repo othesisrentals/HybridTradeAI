@@ -43,7 +43,13 @@ export function Navbar() {
                 href="/dashboard/ads"
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
-                Ad Tasks
+                Ads
+              </Link>
+              <Link
+                href="/dashboard/kyc"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                KYC
               </Link>
               {(session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN') && (
                 <Link
