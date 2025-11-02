@@ -1,0 +1,68 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "logout": "Logout",
+    "login": "Login",
+    "signup": "Sign Up",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "close": "Close"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back",
+    "investedBalance": "Invested Balance",
+    "withdrawalBalance": "Withdrawal Balance",
+    "totalEarnings": "Total Earnings",
+    "kycStatus": "KYC Status",
+    "verified": "Verified",
+    "pending": "Pending",
+    "makeDeposit": "Make a Deposit",
+    "withdrawFunds": "Withdraw Funds",
+    "viewInvestments": "View Investments"
+  },
+  "investment": {
+    "title": "Investments",
+    "activeInvestments": "Active Investments",
+    "completedInvestments": "Completed Investments",
+    "totalInvested": "Total Invested",
+    "totalProfit": "Total Profit",
+    "investNow": "Invest Now",
+    "plan": "Plan",
+    "amount": "Amount",
+    "status": "Status",
+    "startDate": "Start Date",
+    "endDate": "End Date"
+  },
+  "transaction": {
+    "title": "Transactions",
+    "deposit": "Deposit",
+    "withdrawal": "Withdrawal",
+    "profit": "Profit",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "completed": "Completed"
+  },
+  "currency": {
+    "usd": "US Dollar",
+    "eur": "Euro",
+    "gbp": "British Pound",
+    "ngn": "Nigerian Naira",
+    "ghs": "Ghanaian Cedi",
+    "zar": "South African Rand",
+    "kes": "Kenyan Shilling",
+    "cny": "Chinese Yuan",
+    "inr": "Indian Rupee"
+  }
+}

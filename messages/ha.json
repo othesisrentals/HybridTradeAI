@@ -1,0 +1,68 @@
+{
+  "common": {
+    "welcome": "Barka da zuwa",
+    "logout": "Fita",
+    "login": "Shiga",
+    "signup": "Yi rijista",
+    "save": "Ajiye",
+    "cancel": "Soke",
+    "delete": "Share",
+    "edit": "Gyara",
+    "view": "Duba",
+    "back": "Baya",
+    "next": "Na gaba",
+    "previous": "Na baya",
+    "submit": "Tura",
+    "loading": "Ana lodawa...",
+    "error": "Kuskure",
+    "success": "Nasara",
+    "close": "Rufe"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Barka da dawowa",
+    "investedBalance": "Ma'auni na saka hannun jari",
+    "withdrawalBalance": "Ma'auni na cirewa",
+    "totalEarnings": "Jimlar kudaden shiga",
+    "kycStatus": "Matsayin KYC",
+    "verified": "An tabbatar",
+    "pending": "Ana jira",
+    "makeDeposit": "Yi ajiya",
+    "withdrawFunds": "Cire kudi",
+    "viewInvestments": "Duba saka hannun jari"
+  },
+  "investment": {
+    "title": "Saka hannun jari",
+    "activeInvestments": "Saka hannun jari masu aiki",
+    "completedInvestments": "Saka hannun jari da aka kammala",
+    "totalInvested": "Jimlar saka hannun jari",
+    "totalProfit": "Jimlar riba",
+    "investNow": "Saka hannun jari yanzu",
+    "plan": "Shiri",
+    "amount": "Adadin",
+    "status": "Matsayi",
+    "startDate": "Ranar farawa",
+    "endDate": "Ranar ?arshe"
+  },
+  "transaction": {
+    "title": "Ma'amaloli",
+    "deposit": "Ajiya",
+    "withdrawal": "Cirewa",
+    "profit": "Riba",
+    "pending": "Ana jira",
+    "approved": "An amince",
+    "rejected": "An ?i",
+    "completed": "An kammala"
+  },
+  "currency": {
+    "usd": "Dalar Amurka",
+    "eur": "Yuro",
+    "gbp": "Fam na Biritaniya",
+    "ngn": "Naira na Najeriya",
+    "ghs": "Cedi na Ghana",
+    "zar": "Rand na Afirka ta Kudu",
+    "kes": "Shilling na Kenya",
+    "cny": "Yuan na Sin",
+    "inr": "Rupee na Indiya"
+  }
+}

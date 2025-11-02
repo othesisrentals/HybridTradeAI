@@ -1,0 +1,68 @@
+{
+  "common": {
+    "welcome": "Kaabo",
+    "logout": "Jade",
+    "login": "W?le",
+    "signup": "Foruk?sil?",
+    "save": "Fi pam?",
+    "cancel": "Fagilee",
+    "delete": "Paar?",
+    "edit": "?atunk?",
+    "view": "Wo",
+    "back": "Pada",
+    "next": "T?k?n",
+    "previous": "T?l?",
+    "submit": "Fi ran??",
+    "loading": "O n gba...",
+    "error": "A?i?e",
+    "success": "A?ey?ri",
+    "close": "Pa"
+  },
+  "dashboard": {
+    "title": "Ibi i?iro",
+    "welcome": "Kaabo pada",
+    "investedBalance": "Iye ti a ti fi pam?",
+    "withdrawalBalance": "Iye ti o le gba jade",
+    "totalEarnings": "Iye gbogbo ti o ti gba",
+    "kycStatus": "Ipo KYC",
+    "verified": "Ti j?risi",
+    "pending": "O n duro",
+    "makeDeposit": "Fi owo pam?",
+    "withdrawFunds": "Gba owo jade",
+    "viewInvestments": "Wo aw?n ifowopam?"
+  },
+  "investment": {
+    "title": "Aw?n ifowopam?",
+    "activeInvestments": "Aw?n ifowopam? ti n ?i??",
+    "completedInvestments": "Aw?n ifowopam? ti o ti pari",
+    "totalInvested": "Iye gbogbo ti a ti fi pam?",
+    "totalProfit": "?r? gbogbo",
+    "investNow": "Fi pam? ni bayi",
+    "plan": "Eto",
+    "amount": "Iye",
+    "status": "Ipo",
+    "startDate": "?j? ib?r?",
+    "endDate": "?j? ipari"
+  },
+  "transaction": {
+    "title": "Aw?n i??",
+    "deposit": "Fi pam?",
+    "withdrawal": "Gba jade",
+    "profit": "?r?",
+    "pending": "O n duro",
+    "approved": "Ti f?w?si",
+    "rejected": "Ti k?",
+    "completed": "Ti pari"
+  },
+  "currency": {
+    "usd": "D?la Am?rika",
+    "eur": "Yuro",
+    "gbp": "P??ndu",
+    "ngn": "Naira N??j?r??",
+    "ghs": "Sedi Ghana",
+    "zar": "Rand G??s? ?fr?k?",
+    "kes": "Shilling Kenya",
+    "cny": "Yuan ?aina",
+    "inr": "Rupee India"
+  }
+}

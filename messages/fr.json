@@ -1,0 +1,68 @@
+{
+  "common": {
+    "welcome": "Bienvenue",
+    "logout": "D?connexion",
+    "login": "Connexion",
+    "signup": "S'inscrire",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "view": "Voir",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Pr?c?dent",
+    "submit": "Soumettre",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succ?s",
+    "close": "Fermer"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "welcome": "Bon retour",
+    "investedBalance": "Solde investi",
+    "withdrawalBalance": "Solde de retrait",
+    "totalEarnings": "Gains totaux",
+    "kycStatus": "Statut KYC",
+    "verified": "V?rifi?",
+    "pending": "En attente",
+    "makeDeposit": "Effectuer un d?p?t",
+    "withdrawFunds": "Retirer des fonds",
+    "viewInvestments": "Voir les investissements"
+  },
+  "investment": {
+    "title": "Investissements",
+    "activeInvestments": "Investissements actifs",
+    "completedInvestments": "Investissements termin?s",
+    "totalInvested": "Total investi",
+    "totalProfit": "Profit total",
+    "investNow": "Investir maintenant",
+    "plan": "Plan",
+    "amount": "Montant",
+    "status": "Statut",
+    "startDate": "Date de d?but",
+    "endDate": "Date de fin"
+  },
+  "transaction": {
+    "title": "Transactions",
+    "deposit": "D?p?t",
+    "withdrawal": "Retrait",
+    "profit": "Profit",
+    "pending": "En attente",
+    "approved": "Approuv?",
+    "rejected": "Rejet?",
+    "completed": "Termin?"
+  },
+  "currency": {
+    "usd": "Dollar am?ricain",
+    "eur": "Euro",
+    "gbp": "Livre sterling",
+    "ngn": "Naira nig?rian",
+    "ghs": "Cedi ghan?en",
+    "zar": "Rand sud-africain",
+    "kes": "Shilling k?nyan",
+    "cny": "Yuan chinois",
+    "inr": "Roupie indienne"
+  }
+}

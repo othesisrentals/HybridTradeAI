@@ -5,12 +5,43 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number | string, currency: string = 'USD'): string {
+export function formatCurrency(
+  amount: number | string,
+  currency: string = 'USD',
+  locale: string = 'en-US'
+): string {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(numAmount)
+  
+  // Handle Arabic locale for RTL support
+  const formatLocale = locale === 'ar' ? 'ar-SA' : locale
+  
+  try {
+    return new Intl.NumberFormat(formatLocale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numAmount)
+  } catch (error) {
+    // Fallback formatting
+    const symbol = getCurrencySymbol(currency)
+    return `${symbol}${numAmount.toFixed(2)}`
+  }
+}
+
+export function getCurrencySymbol(currency: string): string {
+  const symbols: Record<string, string> = {
+    USD: '$',
+    EUR: '?',
+    GBP: '?',
+    NGN: '?',
+    GHS: '?',
+    ZAR: 'R',
+    KES: 'KSh',
+    CNY: '?',
+    INR: '?',
+  }
+  return symbols[currency] || currency
 }
 
 export function formatDate(date: Date | string): string {
