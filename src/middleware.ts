@@ -1,5 +1,14 @@
+import createMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { locales, defaultLocale } from './i18n/config';
+
+// Create the i18n middleware
+const intlMiddleware = createMiddleware({
+  locales,
+  defaultLocale,
+  localePrefix: 'as-needed', // Don't add prefix for default locale
+});
 
 export function middleware(request: NextRequest) {
   // Add CORS headers for API routes
@@ -22,13 +31,13 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  return NextResponse.next();
+  // Handle i18n routing for non-API routes
+  return intlMiddleware(request);
 }
 
 export const config = {
   matcher: [
+    '/((?!_next|.*\\..*).*)', // Match all routes except _next and static files
     '/api/:path*',
-    '/dashboard/:path*',
-    '/admin/:path*',
   ],
 };

@@ -58,6 +58,11 @@ model User {
   referredById     String? // User ID who referred this user
   referralEarnings Decimal @default(0) @db.Decimal(18, 2)
 
+  // Two-Factor Authentication
+  twoFactorEnabled     Boolean  @default(false)
+  twoFactorSecret      String? // TOTP secret (encrypted)
+  twoFactorBackupCodes String[] @default([]) // Encrypted backup codes
+
   // Metadata
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())

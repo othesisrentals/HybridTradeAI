@@ -1,0 +1,38 @@
+# Code Owners for HybridTradeAI
+# These owners will be requested for review when someone opens a pull request.
+
+# Global owners
+* @hybridtradeai/core-team
+
+# Infrastructure and deployment
+/.github/ @hybridtradeai/devops
+/docker-compose.yml @hybridtradeai/devops
+/Dockerfile @hybridtradeai/devops
+/.env.example @hybridtradeai/devops
+
+# Database and schema
+/prisma/ @hybridtradeai/backend-team
+/src/lib/db/ @hybridtradeai/backend-team
+
+# API routes
+/src/app/api/ @hybridtradeai/backend-team
+
+# Payment integrations
+/src/lib/payment/ @hybridtradeai/backend-team @hybridtradeai/security-team
+
+# Authentication and security
+/src/lib/auth/ @hybridtradeai/security-team
+/src/app/api/auth/ @hybridtradeai/security-team
+
+# Frontend components
+/src/components/ @hybridtradeai/frontend-team
+/src/app/ @hybridtradeai/frontend-team
+
+# Internationalization
+/src/i18n/ @hybridtradeai/frontend-team @hybridtradeai/localization
+
+# Tests
+/tests/ @hybridtradeai/qa-team
+
+# Documentation
+*.md @hybridtradeai/docs-team
