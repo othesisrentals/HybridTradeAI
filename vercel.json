@@ -1,8 +1,26 @@
 {
+  "buildCommand": "prisma generate && next build",
+  "framework": "nextjs",
+  "installCommand": "npm install",
   "crons": [
     {
       "path": "/api/admin/profit/distribute",
       "schedule": "0 2 * * 0"
     }
-  ]
+  ],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "REDIS_URL": "@redis_url",
+    "NEXTAUTH_SECRET": "@nextauth_secret",
+    "NEXTAUTH_URL": "@nextauth_url",
+    "JWT_SECRET": "@jwt_secret",
+    "STRIPE_SECRET_KEY": "@stripe_secret_key",
+    "STRIPE_PUBLISHABLE_KEY": "@stripe_publishable_key",
+    "STRIPE_WEBHOOK_SECRET": "@stripe_webhook_secret",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "ADMOB_APP_ID": "@admob_app_id",
+    "ADMOB_AD_UNIT_ID": "@admob_ad_unit_id",
+    "ADMOB_API_KEY": "@admob_api_key",
+    "RESEND_API_KEY": "@resend_api_key"
+  }
 }
