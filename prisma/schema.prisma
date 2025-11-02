@@ -1,0 +1,669 @@
+// HybridTradeAI - Complete Prisma Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum KYCStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RESUBMITTED
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  emailVerified     DateTime?
+  hashedPassword    String?
+  name              String?
+  phone             String?
+  image             String?
+  role              UserRole @default(USER)
+  
+  // Balances (in cents/smallest currency unit)
+  investedBalance   Int      @default(0) // Locked in investments
+  withdrawalBalance Int      @default(0) // Available for withdrawal (profits only)
+  
+  // KYC
+  kycStatus         KYCStatus @default(PENDING)
+  kycSubmittedAt    DateTime?
+  kycApprovedAt     DateTime?
+  kycRejectionReason String?
+  
+  // Account status
+  isActive          Boolean  @default(true)
+  isBanned          Boolean  @default(false)
+  banReason         String?
+  
+  // Metadata
+  referralCode      String   @unique @default(cuid())
+  referredBy        String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  investments       Investment[]
+  transactions      Transaction[]
+  notifications     Notification[]
+  kycDocuments      KYCDocument[]
+  auditLogs         AuditLog[]
+  adTaskCompletions AdTaskCompletion[]
+  userAdStats       UserAdStats?
+  aiConversations   AIConversation[]
+  profitHistory     ProfitHistory[]
+  
+  @@index([email])
+  @@index([referralCode])
+  @@index([kycStatus])
+  @@map("users")
+}
+
+// ============================================
+// INVESTMENT SYSTEM
+// ============================================
+
+enum PlanType {
+  STARTER
+  PRO
+  ELITE
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  type            PlanType @unique
+  minAmount       Int      // Minimum investment in cents
+  maxAmount       Int?     // Maximum investment in cents (null = unlimited)
+  
+  // ROI Configuration
+  minRoiPercent   Float    // Minimum weekly ROI (e.g., 5.0 for 5%)
+  maxRoiPercent   Float    // Maximum weekly ROI (e.g., 12.0 for 12%)
+  
+  // Features
+  features        Json     // Array of feature strings
+  adTaskAccess    Boolean  @default(false) // Access to ad tasks
+  prioritySupport Boolean  @default(false)
+  
+  // Display
+  description     String
+  color           String   @default("#3B82F6") // Tailwind color
+  icon            String   @default("??")
+  isActive        Boolean  @default(true)
+  displayOrder    Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  investments     Investment[]
+  allocations     PlanAllocation[]
+  
+  @@map("plans")
+}
+
+enum InvestmentStatus {
+  PENDING_DEPOSIT
+  DEPOSIT_APPROVED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  WITHDRAWN
+}
+
+model Investment {
+  id              String           @id @default(cuid())
+  userId          String
+  planId          String
+  
+  // Amounts (in cents)
+  amount          Int
+  totalEarned     Int              @default(0)
+  currentValue    Int              // amount + totalEarned
+  
+  // Status
+  status          InvestmentStatus @default(PENDING_DEPOSIT)
+  
+  // Lifecycle dates
+  depositedAt     DateTime?        // When user made deposit
+  approvedAt      DateTime?        // When admin approved deposit
+  startedAt       DateTime?        // When investment became ACTIVE
+  completedAt     DateTime?
+  
+  // Admin actions
+  approvedBy      String?          // Admin user ID
+  rejectionReason String?
+  
+  // Metadata
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            Plan             @relation(fields: [planId], references: [id])
+  transactions    Transaction[]
+  profitHistory   ProfitHistory[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("investments")
+}
+
+// ============================================
+// TRANSACTIONS
+// ============================================
+
+enum TransactionType {
+  DEPOSIT
+  INVESTMENT
+  PROFIT
+  WITHDRAWAL
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+  AD_EARNING
+  PLATFORM_FEE
+  REFERRAL_BONUS
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  userId          String
+  investmentId    String?
+  
+  // Transaction details
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  amount          Int               // In cents (positive for credits, negative for debits)
+  
+  // Balances after transaction
+  balanceAfter    Int
+  investedBalanceAfter    Int
+  withdrawalBalanceAfter  Int
+  
+  // Payment gateway
+  paymentMethod   String?           // stripe, paystack, manual, etc.
+  paymentId       String?           // External payment ID
+  paymentMetadata Json?
+  
+  // Admin actions
+  processedBy     String?           // Admin user ID
+  approvedAt      DateTime?
+  
+  // Metadata
+  description     String
+  notes           String?
+  failureReason   String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investment      Investment?       @relation(fields: [investmentId], references: [id])
+  
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+// ============================================
+// PROFIT DISTRIBUTION
+// ============================================
+
+model ProfitHistory {
+  id              String     @id @default(cuid())
+  userId          String
+  investmentId    String
+  
+  // Profit details
+  investmentAmount Int       // Amount invested at time of profit
+  roiPercent      Float      // Actual ROI applied (e.g., 8.5)
+  grossProfit     Int        // Profit before fees (in cents)
+  managementFee   Int        // 10% management fee (in cents)
+  netProfit       Int        // Profit after fees (in cents)
+  
+  // Distribution details
+  weekNumber      Int        // Week number of the year
+  distributedAt   DateTime   @default(now())
+  
+  // Metadata
+  notes           String?
+  createdAt       DateTime   @default(now())
+  
+  // Relations
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  investment      Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([investmentId])
+  @@index([distributedAt])
+  @@map("profit_history")
+}
+
+// ============================================
+// REVENUE STREAMS & ALLOCATIONS
+// ============================================
+
+enum RevenueStreamType {
+  ALGORITHMIC_TRADING
+  CRYPTO_STAKING
+  COPY_TRADING
+  ADVERTISING
+  MANAGEMENT_FEES
+  OTHER
+}
+
+model RevenueStream {
+  id              String            @id @default(cuid())
+  name            String            @unique
+  type            RevenueStreamType
+  targetPercent   Float             // Target allocation percentage (e.g., 40.0)
+  
+  // Performance metrics
+  currentPercent  Float             @default(0)
+  totalRevenue    Int               @default(0) // In cents
+  
+  // Status
+  isActive        Boolean           @default(true)
+  description     String?
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  // Relations
+  allocations     PlanAllocation[]
+  
+  @@map("revenue_streams")
+}
+
+model PlanAllocation {
+  id              String         @id @default(cuid())
+  planId          String
+  revenueStreamId String
+  
+  // Allocation details
+  percent         Float          // Percentage of plan's funds in this stream
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  plan            Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  revenueStream   RevenueStream  @relation(fields: [revenueStreamId], references: [id], onDelete: Cascade)
+  
+  @@unique([planId, revenueStreamId])
+  @@map("plan_allocations")
+}
+
+// ============================================
+// RESERVE BUFFER
+// ============================================
+
+model ReserveBuffer {
+  id              String   @id @default(cuid())
+  
+  // Buffer configuration
+  targetPercent   Float    @default(10.0) // 10% of AUM
+  currentAmount   Int      @default(0)    // In cents
+  totalAUM        Int      @default(0)    // Total assets under management
+  
+  // Calculations
+  requiredAmount  Int      @default(0)    // targetPercent * totalAUM
+  surplus         Int      @default(0)    // currentAmount - requiredAmount
+  
+  lastCalculated  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("reserve_buffers")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  DEPOSIT_APPROVED
+  DEPOSIT_REJECTED
+  INVESTMENT_ACTIVE
+  PROFIT_DISTRIBUTED
+  WITHDRAWAL_APPROVED
+  WITHDRAWAL_REJECTED
+  KYC_APPROVED
+  KYC_REJECTED
+  AD_TASK_COMPLETED
+  ADMIN_BROADCAST
+  SYSTEM_ALERT
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Notification {
+  id              String              @id @default(cuid())
+  userId          String?             // null for broadcast notifications
+  
+  // Notification details
+  type            NotificationType
+  priority        NotificationPriority @default(MEDIUM)
+  title           String
+  message         String
+  
+  // Action link
+  actionUrl       String?
+  actionLabel     String?
+  
+  // Status
+  isRead          Boolean             @default(false)
+  readAt          DateTime?
+  
+  // Metadata
+  metadata        Json?               // Additional context
+  expiresAt       DateTime?           // Auto-delete after this date
+  createdAt       DateTime            @default(now())
+  
+  // Relations
+  user            User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@map("notifications")
+}
+
+// ============================================
+// KYC SYSTEM
+// ============================================
+
+enum DocumentType {
+  NATIONAL_ID
+  PASSPORT
+  DRIVERS_LICENSE
+  PROOF_OF_ADDRESS
+  SELFIE
+  OTHER
+}
+
+model KYCDocument {
+  id              String       @id @default(cuid())
+  userId          String
+  
+  // Document details
+  type            DocumentType
+  documentNumber  String?
+  fileName        String
+  fileUrl         String
+  fileSize        Int
+  mimeType        String
+  
+  // Verification
+  isVerified      Boolean      @default(false)
+  verifiedBy      String?      // Admin user ID
+  verifiedAt      DateTime?
+  rejectionReason String?
+  
+  // Metadata
+  expiresAt       DateTime?
+  uploadedAt      DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  // Relations
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([type])
+  @@map("kyc_documents")
+}
+
+// ============================================
+// ADMOB TASK SYSTEM
+// ============================================
+
+enum AdTaskType {
+  VIDEO_AD
+  SURVEY
+  APP_INSTALL
+  OFFER_WALL
+  REWARDED_VIDEO
+}
+
+enum AdTaskStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  EXPIRED
+}
+
+model AdTask {
+  id              String        @id @default(cuid())
+  
+  // Task details
+  title           String
+  description     String
+  type            AdTaskType
+  provider        String        // admob, unity, ironsource
+  
+  // Rewards (in cents)
+  baseReward      Int           // User receives 70% of this
+  platformFee     Int           // Platform keeps 30%
+  totalReward     Int           // baseReward + platformFee
+  
+  // Limits
+  dailyLimit      Int           @default(10)   // Per user
+  totalLimit      Int?          // Total completions allowed
+  cooldownMinutes Int           @default(60)   // Time between completions
+  
+  // Access control
+  minPlanType     PlanType?     // Minimum plan required
+  
+  // Status
+  status          AdTaskStatus  @default(ACTIVE)
+  
+  // Task configuration
+  externalTaskId  String?       // ID from ad provider
+  metadata        Json?         // Provider-specific data
+  
+  // Statistics
+  totalCompletions Int          @default(0)
+  totalRevenue    Int           @default(0)
+  
+  // Dates
+  startsAt        DateTime?
+  endsAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  completions     AdTaskCompletion[]
+  
+  @@index([status])
+  @@index([type])
+  @@map("ad_tasks")
+}
+
+model AdTaskCompletion {
+  id              String   @id @default(cuid())
+  userId          String
+  adTaskId        String
+  
+  // Completion details
+  userReward      Int      // 70% of total
+  platformFee     Int      // 30% of total
+  totalAmount     Int      // userReward + platformFee
+  
+  // Verification
+  isVerified      Boolean  @default(false)
+  verificationId  String?  // From ad provider
+  verificationData Json?
+  
+  // Status
+  isPaid          Boolean  @default(false)
+  paidAt          DateTime?
+  
+  // Metadata
+  ipAddress       String?
+  userAgent       String?
+  completedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adTask          AdTask   @relation(fields: [adTaskId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, adTaskId, completedAt]) // Prevent duplicate completions
+  @@index([userId])
+  @@index([adTaskId])
+  @@index([completedAt])
+  @@map("ad_task_completions")
+}
+
+model UserAdStats {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  
+  // Lifetime statistics
+  totalCompletions Int     @default(0)
+  totalEarnings   Int      @default(0) // In cents
+  
+  // Daily statistics
+  dailyCompletions Int     @default(0)
+  dailyEarnings   Int      @default(0)
+  lastResetDate   DateTime @default(now())
+  
+  // Streak
+  currentStreak   Int      @default(0)
+  longestStreak   Int      @default(0)
+  lastCompletionDate DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_ad_stats")
+}
+
+// ============================================
+// AI SUPPORT SYSTEM
+// ============================================
+
+enum AIMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model AIConversation {
+  id              String         @id @default(cuid())
+  userId          String
+  
+  // Conversation details
+  title           String         @default("New Conversation")
+  messages        Json           // Array of {role, content, timestamp}
+  
+  // Context
+  userContext     Json?          // User's investment data, balance, etc.
+  
+  // Status
+  isActive        Boolean        @default(true)
+  
+  // Metadata
+  totalMessages   Int            @default(0)
+  lastMessageAt   DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([isActive])
+  @@map("ai_conversations")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+  INVESTMENT_CREATED
+  INVESTMENT_APPROVED
+  INVESTMENT_REJECTED
+  DEPOSIT_APPROVED
+  DEPOSIT_REJECTED
+  WITHDRAWAL_APPROVED
+  WITHDRAWAL_REJECTED
+  KYC_APPROVED
+  KYC_REJECTED
+  PROFIT_DISTRIBUTED
+  ADMIN_ACTION
+  SETTINGS_CHANGED
+  AD_TASK_CREATED
+  AD_TASK_COMPLETED
+}
+
+model AuditLog {
+  id              String      @id @default(cuid())
+  userId          String?     // null for system actions
+  performedBy     String?     // Admin user ID for admin actions
+  
+  // Action details
+  action          AuditAction
+  entityType      String      // e.g., "User", "Investment", "Transaction"
+  entityId        String?
+  
+  // Changes
+  oldValues       Json?
+  newValues       Json?
+  
+  // Metadata
+  ipAddress       String?
+  userAgent       String?
+  description     String?
+  createdAt       DateTime    @default(now())
+  
+  // Relations
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
