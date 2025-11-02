@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const { documentId, approved, rejectionReason } = approveSchema.parse(body)
 
     const result = await dbTransaction(async (tx) => {
-      const document = await tx.kYCDocument.findUnique({
+      const document = await tx.kycDocument.findUnique({
         where: { id: documentId },
         include: { user: true },
       })
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
       if (approved) {
         // Approve KYC
-        await tx.kYCDocument.update({
+        await tx.kycDocument.update({
           where: { id: documentId },
           data: {
             status: 'APPROVED',
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         })
       } else {
         // Reject KYC
-        await tx.kYCDocument.update({
+        await tx.kycDocument.update({
           where: { id: documentId },
           data: {
             status: 'REJECTED',

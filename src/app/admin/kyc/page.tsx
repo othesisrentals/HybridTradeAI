@@ -11,7 +11,7 @@ import { formatDateTime } from '@/lib/utils'
 import { CheckCircle2, XCircle, Clock, FileText, User } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
-interface KYCDocument {
+interface KycDocument {
   id: string
   userId: string
   documentType: string
@@ -28,9 +28,9 @@ interface KYCDocument {
 }
 
 export default function AdminKYCPage() {
-  const [documents, setDocuments] = useState<KYCDocument[]>([])
+  const [documents, setDocuments] = useState<KycDocument[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedDocument, setSelectedDocument] = useState<KYCDocument | null>(null)
+  const [selectedDocument, setSelectedDocument] = useState<KycDocument | null>(null)
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
   const [processing, setProcessing] = useState(false)
@@ -92,7 +92,7 @@ export default function AdminKYCPage() {
     }
   }
 
-  const openReviewDialog = (document: KYCDocument) => {
+  const openReviewDialog = (document: KycDocument) => {
     setSelectedDocument(document)
     setRejectionReason('')
     setReviewDialogOpen(true)

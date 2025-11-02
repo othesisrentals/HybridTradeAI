@@ -191,7 +191,7 @@ export default function KYCPage() {
                   disabled={loading}
                 >
                   <option value="PASSPORT">Passport</option>
-                  <option value="DRIVERS_LICENSE">Driver's License</option>
+                  <option value="DRIVERS_LICENSE">Driver&apos;s License</option>
                   <option value="NATIONAL_ID">National ID</option>
                 </select>
               </div>

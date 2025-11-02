@@ -115,7 +115,7 @@ export async function completeAdTask(
     })
 
     // Update user ad stats
-    await updateUserAdStats(userId, adTask.rewardAmount, tx)
+    await updateUserAdStats(userId, Number(adTask.rewardAmount), tx)
 
     return completion
   })

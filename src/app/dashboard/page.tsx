@@ -53,7 +53,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold">Welcome back, {session?.user?.name || 'User'}!</h1>
         <p className="text-muted-foreground mt-2">
-          Here's an overview of your investment portfolio
+          Here&apos;s an overview of your investment portfolio
         </p>
       </div>
 

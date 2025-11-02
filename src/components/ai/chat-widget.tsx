@@ -155,7 +155,7 @@ export function ChatWidget({ conversationId: initialConversationId }: ChatWidget
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <Bot className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-sm text-muted-foreground mb-2">
-                  Welcome! I'm your AI assistant.
+                  Welcome! I&apos;m your AI assistant.
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Ask me about investments, plans, withdrawals, or anything else!

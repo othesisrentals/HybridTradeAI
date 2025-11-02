@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const data = kycSubmitSchema.parse(body)
 
     // Create KYC document
-    const document = await prisma.kYCDocument.create({
+    const document = await prisma.kycDocument.create({
       data: {
         userId: session.user.id,
         documentType: data.documentType,

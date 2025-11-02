@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       prisma.transaction.count({
         where: { type: 'WITHDRAWAL', status: 'PENDING' },
       }),
-      prisma.kYCDocument.count({
+      prisma.kycDocument.count({
         where: { status: 'PENDING' },
       }),
       prisma.investment.aggregate({

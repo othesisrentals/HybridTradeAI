@@ -2,9 +2,14 @@ import OpenAI from 'openai'
 import { prisma } from '@/lib/db/prisma'
 import type { AIMessageRole } from '@prisma/client'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+const getOpenAI = () => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not defined')
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+}
 
 const COMPANY_KNOWLEDGE_BASE = `
 HybridTradeAI Investment Platform Knowledge Base:
@@ -149,6 +154,7 @@ For technical issues or account problems, suggest contacting support.`,
   const startTime = Date.now()
 
   // Get AI response
+  const openai = getOpenAI()
   const completion = await openai.chat.completions.create({
     model: 'gpt-4-turbo-preview',
     messages,

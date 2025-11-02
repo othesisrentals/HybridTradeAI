@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const documents = await prisma.kYCDocument.findMany({
+    const documents = await prisma.kycDocument.findMany({
       where: {
         status: {
           in: ['PENDING', 'UNDER_REVIEW'],
