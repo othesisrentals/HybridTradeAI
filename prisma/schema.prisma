@@ -45,9 +45,9 @@ model User {
   status        UserStatus @default(PENDING_VERIFICATION)
 
   // Balances
-  investedBalance   Decimal @default(0) @db.Decimal(18, 2) // Locked investment amount
-  withdrawalBalance Decimal @default(0) @db.Decimal(18, 2) // Available for withdrawal (profits)
-  totalEarnings     Decimal @default(0) @db.Decimal(18, 2) // Lifetime earnings
+  investedBalance   Decimal @default("0") @db.Decimal(18, 2) // Locked investment amount
+  withdrawalBalance Decimal @default("0") @db.Decimal(18, 2) // Available for withdrawal (profits)
+  totalEarnings     Decimal @default("0") @db.Decimal(18, 2) // Lifetime earnings
 
   // KYC
   kycStatus     KYCStatus @default(PENDING)
@@ -56,7 +56,7 @@ model User {
   // Referral
   referralCode     String  @unique
   referredById     String? // User ID who referred this user
-  referralEarnings Decimal @default(0) @db.Decimal(18, 2)
+  referralEarnings Decimal @default("0") @db.Decimal(18, 2)
 
   // Metadata
   lastLoginAt DateTime?
@@ -73,6 +73,7 @@ model User {
   adTaskCompletions AdTaskCompletion[]
   adStats           UserAdStats?
   aiConversations   AIConversation[]
+  profitHistory     ProfitHistory[]
   auditLogs         AuditLog[]
   referredBy        User?              @relation("UserReferrals", fields: [referredById], references: [id])
   referredUsers     User[]             @relation("UserReferrals")
@@ -166,7 +167,7 @@ model Plan {
   roiMin        Decimal  @db.Decimal(5, 2) // e.g., 5.00 for 5%
   roiMax        Decimal  @db.Decimal(5, 2) // e.g., 12.00 for 12%
   durationWeeks Int // Investment duration in weeks
-  managementFee Decimal  @default(10) @db.Decimal(5, 2) // 10% fee on profits
+  managementFee Decimal  @default("10") @db.Decimal(5, 2) // 10% fee on profits
 
   // Plan features
   hasPremiumAds   Boolean @default(false) // Elite plan gets premium ad tasks
@@ -192,7 +193,7 @@ model Investment {
   status InvestmentStatus @default(PENDING)
 
   // Profit tracking
-  totalProfitEarned Decimal   @default(0) @db.Decimal(18, 2)
+  totalProfitEarned Decimal   @default("0") @db.Decimal(18, 2)
   lastProfitDate    DateTime?
   nextProfitDate    DateTime?
 
@@ -238,7 +239,7 @@ model Transaction {
   approvedBy  String? // Admin user ID
   approvedAt  DateTime?
   data        Json? // Additional structured data (planType, bank details, etc.)
-  
+
   // Relations
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   investment Investment? @relation(fields: [investmentId], references: [id])
@@ -272,6 +273,7 @@ model ProfitHistory {
 
   // Relations
   investment    Investment     @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   revenueStream RevenueStream? @relation(fields: [revenueStreamId], references: [id])
 
   @@index([investmentId])
@@ -297,12 +299,12 @@ model RevenueStream {
   name             String
   type             RevenueStreamType @unique
   targetAllocation Decimal           @db.Decimal(5, 2) // e.g., 40.00 for 40%
-  currentROI       Decimal           @default(0) @db.Decimal(5, 2)
+  currentROI       Decimal           @default("0") @db.Decimal(5, 2)
   isActive         Boolean           @default(true)
 
   // Performance tracking
-  totalRevenue Decimal @default(0) @db.Decimal(18, 2)
-  totalProfit  Decimal @default(0) @db.Decimal(18, 2)
+  totalRevenue Decimal @default("0") @db.Decimal(18, 2)
+  totalProfit  Decimal @default("0") @db.Decimal(18, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -335,9 +337,9 @@ model PlanAllocation {
 
 model ReserveBuffer {
   id               String  @id @default(cuid())
-  currentAmount    Decimal @db.Decimal(18, 2)
-  targetPercentage Decimal @default(10) @db.Decimal(5, 2) // 10% of AUM
-  totalAUM         Decimal @db.Decimal(18, 2) // Assets Under Management
+  currentAmount    Decimal @default("0") @db.Decimal(18, 2)
+  targetPercentage Decimal @default("10") @db.Decimal(5, 2) // 10% of AUM
+  totalAUM         Decimal @default("0") @db.Decimal(18, 2) // Assets Under Management
 
   // Tracking
   lastCalculatedAt DateTime @default(now())
@@ -472,11 +474,11 @@ model AdTask {
 
   // Economics
   rewardAmount       Decimal @db.Decimal(18, 2) // User reward (70% of total)
-  platformCommission Decimal @default(30) @db.Decimal(5, 2) // Platform keeps 30%
-  totalEarning       Decimal @db.Decimal(18, 2) // Total ad revenue
+  platformCommission Decimal @default("30") @db.Decimal(5, 2) // Platform keeps 30%
+  totalEarning       Decimal @default("0") @db.Decimal(18, 2) // Total ad revenue
 
   // Access control
-  allowedPlans PlanType[] // Which plans can access this task
+  allowedPlans PlanType[] @default([]) // Which plans can access this task
   requiredPlan PlanType? // Minimum plan required (null = all plans)
 
   // Limits
@@ -542,12 +544,12 @@ model AdTaskCompletion {
 model UserAdStats {
   id                  String    @id @default(cuid())
   userId              String    @unique
-  totalEarnings       Decimal   @default(0) @db.Decimal(18, 2)
+  totalEarnings       Decimal   @default("0") @db.Decimal(18, 2)
   totalTasksCompleted Int       @default(0)
   lastTaskCompletedAt DateTime?
 
   // Daily tracking (reset daily)
-  todayEarnings       Decimal  @default(0) @db.Decimal(18, 2)
+  todayEarnings       Decimal  @default("0") @db.Decimal(18, 2)
   todayTasksCompleted Int      @default(0)
   lastResetDate       DateTime @default(now())
 
