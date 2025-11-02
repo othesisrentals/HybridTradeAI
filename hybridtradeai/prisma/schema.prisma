@@ -1,0 +1,584 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AuthProvider {
+  CREDENTIALS
+  GOOGLE
+  FACEBOOK
+  APPLE
+  PAYSTACK
+  STRIPE
+}
+
+enum InvestmentStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  PROFIT_DISTRIBUTION
+  MANAGEMENT_FEE
+  AD_REWARD
+  RESERVE_ALLOCATION
+  ADJUSTMENT
+  REFERRAL_BONUS
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum NotificationType {
+  SYSTEM
+  INVESTMENT
+  PROFIT
+  TASK
+  SECURITY
+  BROADCAST
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum KYCStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RESUBMIT
+}
+
+enum KYCDocumentType {
+  ID_CARD
+  PASSPORT
+  DRIVERS_LICENSE
+  UTILITY_BILL
+  BANK_STATEMENT
+  SELFIE
+}
+
+enum RevenueStreamType {
+  ALGO_TRADING
+  CRYPTO_STAKING
+  COPY_TRADING
+  ADVERTISING_TASKS
+  MANAGEMENT_FEES
+}
+
+enum AdTaskType {
+  VIDEO
+  SURVEY
+  INSTALL
+  OFFERWALL
+  CUSTOM
+}
+
+enum AdTaskStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum AdTaskVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum AIConversationStatus {
+  ACTIVE
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
+enum ProfitStatus {
+  PENDING
+  DISTRIBUTED
+  FAILED
+  REVERSED
+}
+
+model User {
+  id                     String                @id @default(cuid())
+  name                   String?
+  email                  String?               @unique
+  emailVerified          DateTime?
+  image                  String?
+  passwordHash           String?
+  role                   Role                  @default(USER)
+  status                 String                @default("active")
+  plan                   Plan?                 @relation(fields: [planId], references: [id])
+  planId                 String?
+  kycStatus              KYCStatus             @default(PENDING)
+  kycVerifiedAt          DateTime?
+  investedBalance        Decimal               @default(0) @db.Decimal(19, 4)
+  withdrawalBalance      Decimal               @default(0) @db.Decimal(19, 4)
+  lifetimeDeposits       Decimal               @default(0) @db.Decimal(19, 4)
+  lifetimeWithdrawals    Decimal               @default(0) @db.Decimal(19, 4)
+  totalEarnings          Decimal               @default(0) @db.Decimal(19, 4)
+  notificationPreferences Json?               @db.Json
+  metadata               Json?                @db.Json
+  lastLoginAt            DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  accounts               Account[]
+  sessions               Session[]
+  investments            Investment[]
+  transactions           Transaction[]
+  notifications          NotificationDelivery[]
+  auditLogs              AuditLog[]            @relation("AuditActor")
+  auditEvents            AuditLog[]            @relation("AuditTarget")
+  kycDocuments           KYCDocument[]
+  adTaskCompletions      AdTaskCompletion[]
+  adStats                UserAdStats[]
+  aiConversations        AIConversation[]      @relation("UserConversations")
+  aiAssignedConversations AIConversation[]     @relation("AssigneeConversations")
+  profitHistory          ProfitHistory[]
+
+  @@index([role])
+  @@index([status])
+  @@index([planId])
+  @@map("users")
+}
+
+model Account {
+  id                 String        @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?       @db.Text
+  access_token       String?       @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?       @db.Text
+  session_state      String?
+  oauth_token_secret String?
+  oauth_token        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Plan {
+  id                String             @id @default(cuid())
+  name              String
+  slug              String             @unique
+  description       String?
+  minDeposit        Decimal            @db.Decimal(19, 4)
+  maxDeposit        Decimal?           @db.Decimal(19, 4)
+  roiMin            Decimal            @db.Decimal(5, 2)
+  roiMax            Decimal            @db.Decimal(5, 2)
+  lockupPeriodDays  Int                @default(7)
+  allowPremiumTasks Boolean            @default(false)
+  features          String[]           @default([])
+  metadata          Json?              @db.Json
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  users        User[]
+  investments  Investment[]
+  allocations  PlanAllocation[]
+  adTasks      AdTaskPlanAccess[]
+  profitRuns   ProfitHistory[]
+
+  @@map("plans")
+}
+
+model Investment {
+  id                 String           @id @default(cuid())
+  userId             String
+  planId             String
+  amount             Decimal          @db.Decimal(19, 4)
+  status             InvestmentStatus @default(PENDING)
+  autoInvested       Boolean          @default(false)
+  approvedById       String?
+  approvedAt         DateTime?
+  activatedAt        DateTime?
+  maturedAt          DateTime?
+  lockedUntil        DateTime?
+  lastProfitDate     DateTime?
+  nextProfitDate     DateTime?
+  metadata           Json?            @db.Json
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id])
+  plan        Plan      @relation(fields: [planId], references: [id])
+  approver    User?     @relation("InvestmentApprover", fields: [approvedById], references: [id])
+  transactions Transaction[]
+  profitRuns   ProfitHistory[]
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@map("investments")
+}
+
+model Transaction {
+  id            String             @id @default(cuid())
+  userId        String
+  investmentId  String?
+  type          TransactionType
+  status        TransactionStatus @default(PENDING)
+  amount        Decimal           @db.Decimal(19, 4)
+  fee           Decimal           @default(0) @db.Decimal(19, 4)
+  platformShare Decimal           @default(0) @db.Decimal(19, 4)
+  userShare     Decimal           @default(0) @db.Decimal(19, 4)
+  reference     String            @unique
+  metadata      Json?             @db.Json
+  initiatedAt   DateTime          @default(now())
+  processedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id])
+  investment Investment? @relation(fields: [investmentId], references: [id])
+
+  @@index([userId])
+  @@index([investmentId])
+  @@index([type])
+  @@index([status])
+  @@map("transactions")
+}
+
+model Notification {
+  id          String               @id @default(cuid())
+  type        NotificationType     @default(SYSTEM)
+  priority    NotificationPriority @default(NORMAL)
+  title       String
+  message     String
+  data        Json?                @db.Json
+  isBroadcast Boolean              @default(false)
+  expiresAt   DateTime?
+  createdById String?
+  createdAt   DateTime             @default(now())
+
+  deliveries NotificationDelivery[]
+  creator    User?                 @relation(fields: [createdById], references: [id])
+
+  @@index([type])
+  @@index([priority])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             String      @id @default(cuid())
+  notificationId String
+  userId         String
+  readAt         DateTime?
+  deliveredAt    DateTime    @default(now())
+  acknowledgedAt DateTime?
+  metadata       Json?       @db.Json
+
+  notification Notification @relation(fields: [notificationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
+  @@map("notification_deliveries")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  action        String
+  entity        String
+  entityId      String
+  actorId       String?
+  userId        String?
+  description   String?
+  before        Json?    @db.Json
+  after         Json?    @db.Json
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
+  user  User? @relation("AuditTarget", fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model RevenueStream {
+  id                      String             @id @default(cuid())
+  name                    String
+  type                    RevenueStreamType
+  description             String?
+  targetAllocationPercent Decimal            @db.Decimal(5, 2)
+  currentAllocationPercent Decimal?          @db.Decimal(5, 2)
+  isActive                Boolean            @default(true)
+  metrics                 Json?              @db.Json
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  allocations PlanAllocation[]
+
+  @@unique([type])
+  @@map("revenue_streams")
+}
+
+model PlanAllocation {
+  id               String   @id @default(cuid())
+  planId           String
+  revenueStreamId  String
+  allocationPercent Decimal  @db.Decimal(5, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  plan          Plan          @relation(fields: [planId], references: [id])
+  revenueStream RevenueStream @relation(fields: [revenueStreamId], references: [id])
+
+  @@unique([planId, revenueStreamId])
+  @@index([revenueStreamId])
+  @@map("plan_allocations")
+}
+
+model KYCDocument {
+  id             String        @id @default(cuid())
+  userId         String
+  type           KYCDocumentType
+  documentNumber String?
+  status         KYCStatus     @default(PENDING)
+  rejectionReason String?
+  frontImageUrl  String?
+  backImageUrl   String?
+  selfieImageUrl String?
+  metadata       Json?         @db.Json
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user      User @relation(fields: [userId], references: [id])
+  reviewer  User? @relation("KYCDocumentReviewer", fields: [reviewedById], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("kyc_documents")
+}
+
+model ReserveBuffer {
+  id                 String   @id @default(cuid())
+  currentBalance     Decimal  @default(0) @db.Decimal(19, 4)
+  targetPercentage   Decimal  @db.Decimal(5, 2)
+  minThreshold       Decimal? @db.Decimal(19, 4)
+  maxThreshold       Decimal? @db.Decimal(19, 4)
+  lastRebalancedAt   DateTime?
+  notes              String?
+  metadata           Json?    @db.Json
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("reserve_buffer")
+}
+
+model AdTask {
+  id                String        @id @default(cuid())
+  title             String
+  slug              String        @unique
+  description       String?
+  type              AdTaskType
+  status            AdTaskStatus  @default(DRAFT)
+  provider          String?
+  externalTaskId    String?
+  rewardAmount      Decimal       @db.Decimal(19, 4)
+  commissionRate    Decimal       @default(0.3) @db.Decimal(5, 2)
+  dailyLimit        Int?          @default(0)
+  cooldownHours     Int?          @default(0)
+  maxCompletions    Int?
+  isPremium         Boolean       @default(false)
+  startAt           DateTime?
+  endAt             DateTime?
+  metadata          Json?         @db.Json
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  completions  AdTaskCompletion[]
+  planAccess   AdTaskPlanAccess[]
+  creator      User?             @relation("AdTaskCreator", fields: [createdById], references: [id])
+  updater      User?             @relation("AdTaskUpdater", fields: [updatedById], references: [id])
+
+  @@index([type])
+  @@index([status])
+  @@map("ad_tasks")
+}
+
+model AdTaskPlanAccess {
+  id       String @id @default(cuid())
+  adTaskId String
+  planId   String
+
+  adTask AdTask @relation(fields: [adTaskId], references: [id])
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@unique([adTaskId, planId])
+  @@map("ad_task_plan_access")
+}
+
+model AdTaskCompletion {
+  id             String                     @id @default(cuid())
+  userId         String
+  adTaskId       String
+  verificationStatus AdTaskVerificationStatus @default(PENDING)
+  rewardAmount   Decimal                    @default(0) @db.Decimal(19, 4)
+  platformShare  Decimal                    @default(0) @db.Decimal(19, 4)
+  userShare      Decimal                    @default(0) @db.Decimal(19, 4)
+  evidenceUrl    String?
+  notes          String?
+  completedAt    DateTime?
+  verifiedById   String?
+  verifiedAt     DateTime?
+  rejectedReason String?
+  cooldownExpiresAt DateTime?
+  metadata       Json?                      @db.Json
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  user      User   @relation(fields: [userId], references: [id])
+  adTask    AdTask @relation(fields: [adTaskId], references: [id])
+  verifier  User?  @relation("AdTaskVerifier", fields: [verifiedById], references: [id])
+
+  @@index([userId])
+  @@index([adTaskId])
+  @@index([verificationStatus])
+  @@map("ad_task_completions")
+}
+
+model UserAdStats {
+  id                 String   @id @default(cuid())
+  userId             String
+  date               DateTime
+  completedTasks     Int      @default(0)
+  totalEarnings      Decimal  @default(0) @db.Decimal(19, 4)
+  platformCommission Decimal  @default(0) @db.Decimal(19, 4)
+  adMinutesWatched   Int      @default(0)
+  lastUpdatedAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@map("user_ad_stats")
+}
+
+model AIConversation {
+  id              String               @id @default(cuid())
+  userId          String?
+  assignedToId    String?
+  status          AIConversationStatus @default(ACTIVE)
+  topic           String?
+  summary         String?
+  context         Json?                @db.Json
+  metadata        Json?                @db.Json
+  startedAt       DateTime             @default(now())
+  closedAt        DateTime?
+  updatedAt       DateTime             @updatedAt
+
+  user      User? @relation("UserConversations", fields: [userId], references: [id])
+  assignee  User? @relation("AssigneeConversations", fields: [assignedToId], references: [id])
+  messages  AIMessage[]
+
+  @@index([status])
+  @@index([userId])
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id              String   @id @default(cuid())
+  conversationId  String
+  role            String
+  content         String   @db.Text
+  metadata        Json?    @db.Json
+  createdAt       DateTime @default(now())
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@map("ai_messages")
+}
+
+model ProfitHistory {
+  id                String       @id @default(cuid())
+  userId            String
+  investmentId      String?
+  planId            String?
+  distributionDate  DateTime
+  roiPercentage     Decimal      @db.Decimal(5, 2)
+  grossProfit       Decimal      @db.Decimal(19, 4)
+  managementFee     Decimal      @db.Decimal(19, 4)
+  reserveAllocation Decimal      @default(0) @db.Decimal(19, 4)
+  netProfit         Decimal      @db.Decimal(19, 4)
+  status            ProfitStatus @default(PENDING)
+  reference         String       @unique
+  metadata          Json?        @db.Json
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id])
+  investment  Investment? @relation(fields: [investmentId], references: [id])
+  plan        Plan?       @relation(fields: [planId], references: [id])
+
+  @@index([distributionDate])
+  @@index([status])
+  @@map("profit_history")
+}
