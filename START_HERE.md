@@ -4,11 +4,14 @@
 
 ### 1. Get Free Database (1 minute)
 
-Go to **https://neon.tech** and:
-- Click "Sign Up" (or sign in with GitHub)
-- Create a new project
+Go to **https://supabase.com** and:
+- Click "Start your project" (or sign in with GitHub)
+- Create a new project (name it HybridTradeAI)
+- Wait ~2 minutes for setup
+- Go to Settings ? Database ? Connection string (URI)
 - Copy the connection string
-- It looks like: `postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb`
+- It looks like: `postgresql://postgres:password@db.xxx.supabase.co:5432/postgres`
+- Replace `[YOUR-PASSWORD]` with your database password
 
 ### 2. Update .env (30 seconds)
 
@@ -17,7 +20,7 @@ Open `/workspace/.env` and find this line:
 DATABASE_URL="file:./dev.db"
 ```
 
-Replace it with your Neon connection string:
+Replace it with your Supabase connection string:
 ```bash
 DATABASE_URL="postgresql://your-connection-string-here"
 ```
