@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
-import { redisClient } from '@/lib/redis/client';
+import { redis } from '@/lib/redis/client';
 import { RedisKeys } from '@/lib/redis/keys';
 import { AdTaskType, AdTaskStatus, TransactionType, TransactionStatus, NotificationType } from '@prisma/client';
 import { notificationService } from '@/lib/notifications/service';
@@ -73,7 +73,7 @@ export class AdTaskService {
   async isTaskAvailable(userId: string, taskId: string): Promise<boolean> {
     // Check cooldown
     const cooldownKey = RedisKeys.adTaskCooldown(userId, taskId);
-    const cooldown = await redisClient.get(cooldownKey);
+    const cooldown = await redis.get(cooldownKey);
     if (cooldown) return false;
 
     // Check daily limit
@@ -91,7 +91,7 @@ export class AdTaskService {
    */
   async getCooldownRemaining(userId: string, taskId: string): Promise<number> {
     const cooldownKey = RedisKeys.adTaskCooldown(userId, taskId);
-    const ttl = await redisClient.ttl(cooldownKey);
+    const ttl = await redis.ttl(cooldownKey);
     return ttl > 0 ? ttl : 0;
   }
 
@@ -101,7 +101,7 @@ export class AdTaskService {
   async getDailyCompletions(userId: string, taskId: string): Promise<number> {
     const dateStr = getDateString();
     const limitKey = RedisKeys.adTaskDailyLimit(userId, taskId, dateStr);
-    const count = await redisClient.get(limitKey);
+    const count = await redis.get(limitKey);
     return count ? parseInt(count) : 0;
   }
 
@@ -213,12 +213,12 @@ export class AdTaskService {
 
       // Set cooldown in Redis
       const cooldownKey = RedisKeys.adTaskCooldown(userId, taskId);
-      await redisClient.set(cooldownKey, '1', 'EX', task.cooldownMinutes * 60);
+      await redis.set(cooldownKey, '1', 'EX', task.cooldownMinutes * 60);
 
       // Increment daily counter
       const limitKey = RedisKeys.adTaskDailyLimit(userId, taskId, dateStr);
-      await redisClient.incr(limitKey);
-      await redisClient.expire(limitKey, 86400); // 24 hours
+      await redis.incr(limitKey);
+      await redis.expire(limitKey, 86400); // 24 hours
 
       // Notify user
       await notificationService.create({
@@ -226,7 +226,7 @@ export class AdTaskService {
         type: NotificationType.AD_TASK_COMPLETED,
         title: '?? Task Completed!',
         message: `You earned $${(userReward / 100).toFixed(2)} from "${task.title}"`,
-        actionUrl: '/dashboard/tasks',
+        link: '/dashboard/tasks',
       });
 
       logger.info('Ad task completed', {
