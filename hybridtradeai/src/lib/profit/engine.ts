@@ -3,10 +3,13 @@ import { randomUUID } from "node:crypto";
 import type { Investment, Plan, Prisma, PrismaClient } from "@prisma/client";
 import {
   InvestmentStatus,
+  NotificationType,
   ProfitStatus,
   TransactionStatus,
   TransactionType,
 } from "@prisma/client";
+
+import { NotificationService } from "@/lib/notifications/notificationService";
 
 type Decimal = Prisma.Decimal;
 
@@ -387,6 +390,21 @@ export class InvestmentEngine {
       lastDetail.profitHistoryId = result.profitHistoryId;
 
       summary.totalProcessed += 1;
+
+      await NotificationService.createNotification({
+        userId: investment.userId,
+        type: NotificationType.PROFIT,
+        title: "Weekly Profit Distributed",
+        message: `You received $${distribution.netProfit.toFixed(2)} in profit (${distribution.roiPercentage.toFixed(2)}% ROI).`,
+        link: "/dashboard",
+        data: {
+          investmentId: investment.id,
+          planId: plan.id,
+          grossProfit: distribution.grossProfit.toString(),
+          netProfit: distribution.netProfit.toString(),
+          roiPercentage: distribution.roiPercentage.toString(),
+        },
+      });
     }
 
     return summary;
