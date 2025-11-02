@@ -1,127 +1,334 @@
-# HybridTradeAI
+# HybridTradeAI ??
 
-A lawful hybrid investment platform built with Next.js, TypeScript, Tailwind CSS, and Supabase. This platform offers low-risk trading investments with real revenue streams from HFT, staking, copy trading, and ad monetization. Users can invest and generate returns based on configurable allocations and performance.
+A complete, production-ready investment platform with real-time notifications, AdMob task system, AI support, and automated profit distribution.
 
-## Features
+## ? Features
 
-- User registration and authentication via Supabase Auth
-- Investment plans with configurable allocations and ROIs
-- Profit distribution engine with weekly credits
-- Referral system with commissions
-- KYC upload and verification for withdrawals
-- AI-powered chat assistant
-- Admin dashboard for approvals and oversight
-- Payment integrations (Flutterwave, Paystack, NowPayments)
-- Proof-of-reserves for transparency
-- Ad monetization for Starter plan users via CPC/CPA with Google AdMobs
+### Core Investment System
+- **Three Investment Plans** (Starter, Pro, Elite) with dynamic ROI ranges
+- **Admin-approved deposits** ? Auto-investment ? Weekly profit distribution
+- **Separate balances**: Invested (locked) vs Withdrawal (profits only)
+- **KYC verification system** with admin approval
 
-## Installation
+### Real-Time Notifications
+- **Server-Sent Events (SSE)** with Redis pub/sub for live updates
+- **Cross-tab synchronization** with leader election
+- **Notification bell and center** with filtering
+- **Admin broadcast capabilities**
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/othesisrentals/HybridTradeAI.git
-   cd HybridTradeAI
-   ```
+### AdMob Task System
+- Video ads, surveys, app installs, offer walls
+- **30% platform commission** on ad earnings
+- Daily limits and cooldown periods
+- Plan-based task access (Elite gets premium tasks)
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+### AI Support System
+- Company-knowledgeable AI assistant
+- Personalized profit estimates
+- Investment guidance and status updates
+- Real-time portfolio analytics
 
-3. Set up environment variables:
-   - Copy `.env.example` to `.env.local`
-   - Fill in the required values (see below)
+### Admin Control Panel
+- Deposit/withdrawal approval workflows
+- KYC verification management
+- Revenue stream performance tracking
+- Reserve buffer management
+- Ad task creation and management
 
-4. Set up Supabase:
-   - Create a new project on [Supabase](https://supabase.com)
-   - Run the SQL scripts in `/backend/schema.sql` and `/backend/seed.sql` in your Supabase SQL editor
-   - Note the project URL and anon key for `.env.local`
+## ??? Tech Stack
 
-## Environment Variables
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Framer Motion
+- **Backend**: Next.js API Routes, Prisma, PostgreSQL, Redis, NextAuth
+- **Real-time**: Server-Sent Events (SSE), Redis pub/sub
+- **Payments**: Stripe integration
+- **Ads**: Google AdMob, Unity Ads, IronSource
+- **AI**: OpenAI GPT-4 for support system
 
-Create a `.env.local` file with the following:
+## ?? Prerequisites
 
-```
-SUPABASE_URL=https://aepisnnzhigpbbpoaice.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlcGlzbm56aGlncGJicG9haWNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5OTIwNjksImV4cCI6MjA3NjU2ODA2OX0.rg4hLtA1DSzwvUhdIrc3IJvQKsbRoIU8-c-wEWwSoaA
-NEXT_PUBLIC_SUPABASE_URL=https://aepisnnzhigpbbpoaice.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlcGlzbm56aGlncGJicG9haWNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5OTIwNjksImV4cCI6MjA3NjU2ODA2OX0.rg4hLtA1DSzwvUhdIrc3IJvQKsbRoIU8-c-wEWwSoaA
-OPENAI_API_KEY=your_openai_api_key_here
-FLUTTERWAVE_PUBLIC_KEY=FLWPUBK_TEST-xxxxxxxxxxxxxxxxxxxxx-X
-PAYSTACK_PUBLIC_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-NOWPAYMENTS_API_KEY=your_nowpayments_api_key_here
-ADMOB_PUBLISHER_ID=ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy
-ADMIN_EMAIL=admin@hybridtradeai.com
-PLATFORM_FEE_PERCENT=7
-RAINY_DAY_RESERVE=10
-WITHDRAWAL_THRESHOLD=1000
-COMPANY_PHONE=1234567890
-SUPPORT_EMAIL=support@hybridtradeai.com
-NEXT_PUBLIC_APP_NAME=HybridTradeAI
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
-NEXT_PUBLIC_APP_ENV=development
-```
+- Node.js 18+ and npm/yarn
+- PostgreSQL database
+- Redis instance
+- Stripe account
+- Google AdMob account (optional)
 
-## Running the Application
+## ?? Quick Start
 
-1. Start the development server:
-   ```bash
-   npm run dev
-   ```
+### 1. Clone and Install
 
-2. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-3. Register a new user or log in
-
-## Database Schema
-
-The database schema is defined in `/backend/schema.sql`. It includes tables for users, plans, investments, transactions, profit_logs, support_tickets, and referrals.
-
-Run the seed data in `/backend/seed.sql` to populate initial plans and an admin user.
-
-## Profit Distribution
-
-The profit engine (`/lib/profitEngine.ts`) runs weekly to credit profits based on plan allocations and current stream ROIs. Admins can input weekly ROIs via the admin dashboard.
-
-To run the profit engine manually:
 ```bash
-node backend/profit-engine.ts --dry-run  # For testing
-node backend/profit-engine.ts  # For production
+git clone <repository-url>
+cd hybridtradeai
+npm install
 ```
 
-## Admin Checklist
+### 2. Environment Setup
 
-- [ ] Review and approve KYC documents
-- [ ] Verify deposits and withdrawals
-- [ ] Input weekly stream ROIs
-- [ ] Monitor profit distributions
-- [ ] Download proof-of-reserves snapshots
-- [ ] Handle support tickets
+Copy `.env.example` to `.env.local` and fill in your values:
 
-## Payment Integrations
-
-- **Flutterwave**: For fiat payments in supported regions
-- **Paystack**: For Nigerian fiat payments
-- **NowPayments**: For crypto payments
-
-Obtain sandbox keys from their respective dashboards for testing. Webhooks are handled at `/api/webhook/payment-webhook.ts`.
-
-## Ad Monetization
-
-Starter plan users can earn additional revenue through CPC/CPA ads and rewarded video ads via Google AdMobs. Ad interactions are tracked and credited to user balances.
-
-## AI Assistant
-
-The chat widget uses OpenAI for responses. If issues like "withdraw", "lost", or "fraud" are mentioned, a support ticket is created automatically.
-
-## Testing
-
-Run tests with:
 ```bash
-npm test
+cp .env.example .env.local
 ```
 
-## Contributing
+Required environment variables:
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string
+- `NEXTAUTH_SECRET` - 32-character secret (generate with `openssl rand -base64 32`)
+- `NEXTAUTH_URL` - Your app URL (e.g., `http://localhost:3000`)
+- `STRIPE_SECRET_KEY` - Stripe secret key
+- `OPENAI_API_KEY` - OpenAI API key for AI support
+
+See `.env.example` for all required variables.
+
+### 3. Database Setup
+
+```bash
+# Generate Prisma client
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# Seed initial data (creates plans, admin user, etc.)
+npm run db:seed
+```
+
+**Default Admin Credentials:**
+- Email: `admin@hybridtradeai.com`
+- Password: `admin123`
+
+?? **Change the admin password immediately after first login!**
+
+### 4. Run Development Server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## ?? Project Structure
+
+```
+hybridtradeai/
+??? prisma/
+?   ??? schema.prisma          # Complete database schema
+??? src/
+?   ??? app/
+?   ?   ??? api/               # API routes
+?   ?   ?   ??? auth/          # Authentication
+?   ?   ?   ??? admin/         # Admin endpoints
+?   ?   ?   ??? user/          # User endpoints
+?   ?   ?   ??? notifications/ # Notification SSE
+?   ?   ?   ??? ads/           # Ad task endpoints
+?   ?   ?   ??? ai/            # AI support endpoints
+?   ?   ??? (auth)/            # Auth pages
+?   ?   ??? (public)/          # Public pages
+?   ?   ??? admin/             # Admin dashboard
+?   ?   ??? dashboard/         # User dashboard
+?   ?   ??? layout.tsx
+?   ??? lib/
+?   ?   ??? db/                # Database utilities
+?   ?   ??? redis/             # Redis client
+?   ?   ??? auth/              # NextAuth config
+?   ?   ??? notifications/     # Notification system
+?   ?   ??? profit/             # Profit distribution
+?   ?   ??? ads/               # AdMob system
+?   ?   ??? ai/                # AI support
+?   ??? components/            # React components
+??? scripts/
+?   ??? seed.ts               # Database seed script
+??? DEPLOYMENT.md             # Deployment guide
+```
+
+## ?? Investment Plans
+
+### Starter Plan
+- **Minimum**: $100
+- **Maximum**: $5,000
+- **ROI Range**: 5-12% per week
+- **Duration**: 12 weeks
+- **Management Fee**: 10% of profits
+
+### Pro Plan
+- **Minimum**: $5,000
+- **Maximum**: $50,000
+- **ROI Range**: 8-18% per week
+- **Duration**: 12 weeks
+- **Management Fee**: 10% of profits
+- **Premium Features**: Premium ad tasks
+
+### Elite Plan
+- **Minimum**: $50,000
+- **Maximum**: $500,000
+- **ROI Range**: 12-25% per week
+- **Duration**: 12 weeks
+- **Management Fee**: 10% of profits
+- **Premium Features**: Premium ad tasks, priority support
+
+## ?? Revenue Streams
+
+- **Algorithmic Trading**: 40% allocation
+- **Crypto Staking**: 25% allocation
+- **Copy Trading**: 15% allocation
+- **Advertising & Tasks**: 20% allocation
+- **Management Fees**: 10% of all profits
+
+## ?? Profit Distribution
+
+- **Weekly automated runs** (Sunday 2 AM UTC)
+- **Random ROI** within plan ranges
+- **10% management fee** on all profits
+- **Profits go to withdrawal balance** only
+
+## ?? Notification System
+
+Real-time notifications via Server-Sent Events:
+- Investment approvals
+- Profit distributions
+- Deposit/withdrawal status
+- KYC verification updates
+- Admin broadcasts
+- Ad task completions
+
+## ?? Ad Task System
+
+- **User earns 70%** of ad revenue
+- **Platform keeps 30%** commission
+- **Daily limits** per user
+- **Plan-based access** to premium tasks
+- **Verification required** for some tasks
+
+## ?? AI Support
+
+- Company knowledge base integration
+- Personalized responses based on user portfolio
+- Investment guidance
+- Profit estimates
+- Real-time status updates
+
+## ?? Security Features
+
+- KYC/AML verification required for investments
+- Reserve buffer system (10% of AUM)
+- Withdrawal limits and admin approval
+- Audit logging for all financial actions
+- Rate limiting on critical endpoints
+- Input validation with Zod schemas
+
+## ?? Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete deployment guide.
+
+### Quick Deploy to Vercel
+
+1. Push to GitHub
+2. Import project in Vercel
+3. Add environment variables
+4. Deploy
+
+### Setup Cron Jobs
+
+Weekly profit distribution (Sunday 2 AM UTC):
+
+```bash
+# Vercel Cron (vercel.json)
+{
+  "crons": [{
+    "path": "/api/admin/profit/distribute",
+    "schedule": "0 2 * * 0"
+  }]
+}
+```
+
+## ?? API Documentation
+
+### User Endpoints
+
+- `POST /api/user/deposit` - Create deposit request
+- `POST /api/user/withdraw` - Create withdrawal request
+- `GET /api/user/investments` - Get user investments
+
+### Admin Endpoints
+
+- `GET /api/admin/transactions/pending` - Get pending transactions
+- `POST /api/admin/transactions/approve` - Approve/reject transaction
+- `POST /api/admin/broadcast` - Send broadcast notification
+- `POST /api/admin/kyc/approve` - Approve/reject KYC
+- `POST /api/admin/profit/distribute` - Trigger profit distribution
+- `POST /api/admin/ads/verify` - Verify ad task completion
+
+### Notification Endpoints
+
+- `GET /api/notifications` - Get user notifications
+- `GET /api/notifications/sse` - SSE stream for real-time updates
+- `PATCH /api/notifications` - Mark notification as read
+
+### Ad Task Endpoints
+
+- `GET /api/ads/tasks` - Get available ad tasks
+- `POST /api/ads/complete` - Complete ad task
+
+### AI Support Endpoints
+
+- `GET /api/ai/conversations` - Get user conversations
+- `POST /api/ai/conversations` - Create new conversation
+- `GET /api/ai/conversations/[id]` - Get conversation
+- `POST /api/ai/conversations/[id]` - Send message
+
+## ?? Development
+
+### Database Management
+
+```bash
+# Generate Prisma client
+npm run db:generate
+
+# Push schema changes
+npm run db:push
+
+# Create migration
+npm run db:migrate
+
+# Open Prisma Studio
+npm run db:studio
+
+# Seed database
+npm run db:seed
+```
+
+### Code Quality
+
+```bash
+# Lint
+npm run lint
+
+# Type check
+npx tsc --noEmit
+```
+
+## ?? Troubleshooting
+
+### Database Connection Issues
+- Verify `DATABASE_URL` format
+- Check network access
+- Verify database is running
+
+### Redis Connection Issues
+- Verify `REDIS_URL` format
+- Check Redis server status
+- Verify network access
+
+### SSE Notifications Not Working
+- Check Redis pub/sub connections
+- Verify channel names match
+- Check browser console for errors
+
+## ?? License
+
+MIT
+
+## ?? Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -129,6 +336,14 @@ npm test
 4. Run tests and linting
 5. Submit a pull request
 
-## License
+## ?? Support
 
-MIT
+For issues or questions:
+- Check application logs
+- Review database query logs
+- Monitor Redis pub/sub channels
+- Check API response times
+
+---
+
+Built with ?? using Next.js 14, Prisma, PostgreSQL, and Redis
