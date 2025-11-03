@@ -1,283 +1,369 @@
-import { prisma } from '@/lib/db/prisma';
+import { prisma } from '@/lib/db/prisma'
 import {
+  Prisma,
   InvestmentStatus,
   TransactionType,
   TransactionStatus,
   NotificationType,
-  Plan,
+  NotificationPriority,
+  KYCStatus,
   Investment,
-} from '@prisma/client';
-import { notificationService } from '@/lib/notifications/service';
-import { logger } from '@/lib/utils/logger';
-import { AppError, InsufficientFundsError } from '@/lib/utils/errors';
+} from '@prisma/client'
+import { createNotification } from '@/lib/notifications/notifications'
+import { logger } from '@/lib/utils/logger'
+import { AppError } from '@/lib/utils/errors'
+
+function toDecimal(value: Prisma.Decimal | number | string): Prisma.Decimal {
+  return value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value)
+}
+
+function formatAmount(value: Prisma.Decimal | number | string): string {
+  return toDecimal(value).toFixed(2)
+}
+
+function getNextProfitDate(reference: Date = new Date()): Date {
+  const next = new Date(reference)
+  const day = next.getDay() // 0 (Sun) - 6 (Sat)
+  const daysUntilSunday = (7 - day) % 7
+
+  next.setDate(next.getDate() + daysUntilSunday)
+  next.setHours(2, 0, 0, 0) // Sunday 02:00 local time
+
+  if (daysUntilSunday === 0 && reference.getHours() >= 2) {
+    next.setDate(next.getDate() + 7)
+  }
+
+  return next
+}
 
 export class InvestmentService {
   /**
-   * Create a deposit request (pending approval)
+   * Create a deposit request linked to an investment in pending state
    */
   async createDepositRequest(
     userId: string,
     planId: string,
-    amount: number
+    amount: number,
+    options: {
+      currency?: string
+      paymentReference?: string
+      paymentMethod?: string
+      metadata?: Record<string, unknown>
+    } = {}
   ): Promise<Investment> {
-    // Validate plan and amount
-    const plan = await prisma.plan.findUnique({
-      where: { id: planId },
-    });
+    const amountDecimal = toDecimal(amount)
 
-    if (!plan || !plan.isActive) {
-      throw new AppError('Invalid or inactive plan', 400);
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      const [plan, user] = await Promise.all([
+        tx.plan.findUnique({ where: { id: planId } }),
+        tx.user.findUnique({ where: { id: userId }, select: { kycStatus: true } }),
+      ])
 
-    if (amount < plan.minAmount) {
-      throw new AppError(
-        `Minimum investment for ${plan.name} is ${plan.minAmount / 100}`,
-        400
-      );
-    }
+      if (!plan || !plan.isActive) {
+        throw new AppError('Selected plan is not available', 400)
+      }
 
-    if (plan.maxAmount && amount > plan.maxAmount) {
-      throw new AppError(
-        `Maximum investment for ${plan.name} is ${plan.maxAmount / 100}`,
-        400
-      );
-    }
+      if (!user) {
+        throw new AppError('User not found', 404)
+      }
 
-    // Create investment with pending status
-    const investment = await prisma.investment.create({
-      data: {
-        userId,
-        planId,
-        amount,
-        currentValue: amount,
-        status: InvestmentStatus.PENDING_DEPOSIT,
-        depositedAt: new Date(),
-      },
-      include: {
-        plan: true,
-      },
-    });
+      if (user.kycStatus !== KYCStatus.APPROVED) {
+        throw new AppError('Complete KYC verification before investing', 400)
+      }
 
-    // Create pending transaction
-    await prisma.transaction.create({
-      data: {
-        userId,
-        investmentId: investment.id,
-        type: TransactionType.DEPOSIT,
-        status: TransactionStatus.PENDING,
-        amount,
-        description: `Deposit for ${plan.name} plan`,
-        balanceAfter: 0,
-        investedBalanceAfter: 0,
-        withdrawalBalanceAfter: 0,
-      },
-    });
+      if (amountDecimal.lt(plan.minAmount)) {
+        throw new AppError(
+          `Minimum amount for ${plan.name} is $${formatAmount(plan.minAmount)}`,
+          400
+        )
+      }
 
-    // Notify user
-    await notificationService.create({
+      if (amountDecimal.gt(plan.maxAmount)) {
+        throw new AppError(
+          `Maximum amount for ${plan.name} is $${formatAmount(plan.maxAmount)}`,
+          400
+        )
+      }
+
+      const investment = await tx.investment.create({
+        data: {
+          userId,
+          planId,
+          amount: amountDecimal,
+          status: InvestmentStatus.PENDING,
+        },
+        include: {
+          plan: true,
+        },
+      })
+
+      await tx.transaction.create({
+        data: {
+          userId,
+          investmentId: investment.id,
+          type: TransactionType.DEPOSIT,
+          status: TransactionStatus.PENDING,
+          amount: amountDecimal,
+          currency: options.currency || 'USD',
+          paymentReference: options.paymentReference,
+          paymentMethod: options.paymentMethod,
+          description: `Deposit request for ${investment.plan.name}`,
+          data: {
+            ...(options.metadata || {}),
+            planId,
+            autoInvest: true,
+          },
+        },
+      })
+
+      return investment
+    })
+
+    await createNotification({
       userId,
-      type: NotificationType.DEPOSIT_APPROVED,
-      title: 'Deposit Pending',
-      message: `Your deposit of $${amount / 100} for ${plan.name} is pending approval.`,
-      actionUrl: `/dashboard/investments/${investment.id}`,
-    });
+      type: NotificationType.DEPOSIT_CREATED,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Deposit Request Submitted',
+      message: `We received your deposit request of $${formatAmount(amount)}. Our team will review it shortly.`,
+      link: `/dashboard/investments`,
+      data: {
+        planId,
+        amount: formatAmount(amount),
+      },
+    })
 
     logger.info('Deposit request created', {
       userId,
-      investmentId: investment.id,
-      amount,
-    });
+      planId,
+      amount: formatAmount(amount),
+    })
 
-    return investment;
+    return result
   }
 
   /**
-   * Admin approves deposit and activates investment
+   * Admin approves a pending investment deposit
    */
   async approveDeposit(
     investmentId: string,
-    approvedBy: string
+    approvedBy: string,
+    adminNotes?: string
   ): Promise<Investment> {
-    return await prisma.$transaction(async (tx) => {
-      // Get investment
+    const now = new Date()
+    const nextProfitDate = getNextProfitDate(now)
+
+    const { investment } = await prisma.$transaction(async (tx) => {
       const investment = await tx.investment.findUnique({
         where: { id: investmentId },
-        include: { plan: true, user: true },
-      });
+        include: {
+          plan: true,
+        },
+      })
 
       if (!investment) {
-        throw new AppError('Investment not found', 404);
+        throw new AppError('Investment not found', 404)
       }
 
-      if (investment.status !== InvestmentStatus.PENDING_DEPOSIT) {
-        throw new AppError('Investment is not pending approval', 400);
+      if (investment.status !== InvestmentStatus.PENDING) {
+        throw new AppError('Investment is not pending approval', 400)
       }
 
-      // Update investment status
+      const depositTransaction = await tx.transaction.findFirst({
+        where: {
+          investmentId,
+          type: TransactionType.DEPOSIT,
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      if (!depositTransaction) {
+        throw new AppError('Deposit transaction not found', 404)
+      }
+
       const updatedInvestment = await tx.investment.update({
         where: { id: investmentId },
         data: {
           status: InvestmentStatus.ACTIVE,
-          approvedAt: new Date(),
-          startedAt: new Date(),
-          approvedBy,
+          startDate: now,
+          autoInvested: true,
+          autoInvestedAt: now,
+          nextProfitDate,
         },
-        include: { plan: true },
-      });
+        include: {
+          plan: true,
+        },
+      })
 
-      // Update user's invested balance
-      const user = await tx.user.update({
-        where: { id: investment.userId },
+      await tx.user.update({
+        where: { id: updatedInvestment.userId },
         data: {
           investedBalance: {
-            increment: investment.amount,
+            increment: updatedInvestment.amount,
           },
         },
-      });
+      })
 
-      // Update transaction
-      await tx.transaction.updateMany({
-        where: {
-          investmentId,
-          type: TransactionType.DEPOSIT,
-          status: TransactionStatus.PENDING,
-        },
+      await tx.transaction.update({
+        where: { id: depositTransaction.id },
         data: {
-          status: TransactionStatus.COMPLETED,
-          processedBy: approvedBy,
-          approvedAt: new Date(),
-          balanceAfter: user.investedBalance + user.withdrawalBalance,
-          investedBalanceAfter: user.investedBalance,
-          withdrawalBalanceAfter: user.withdrawalBalance,
+          status: TransactionStatus.APPROVED,
+          approvedAt: now,
+          approvedBy,
+          adminNotes,
         },
-      });
+      })
 
-      // Create investment transaction
       await tx.transaction.create({
         data: {
-          userId: investment.userId,
+          userId: updatedInvestment.userId,
           investmentId,
           type: TransactionType.INVESTMENT,
           status: TransactionStatus.COMPLETED,
-          amount: investment.amount,
-          description: `Investment activated - ${investment.plan.name}`,
-          balanceAfter: user.investedBalance + user.withdrawalBalance,
-          investedBalanceAfter: user.investedBalance,
-          withdrawalBalanceAfter: user.withdrawalBalance,
+          amount: updatedInvestment.amount,
+          currency: depositTransaction.currency,
+          description: `Investment activated - ${updatedInvestment.plan.name}`,
+          data: {
+            approvalTransactionId: depositTransaction.id,
+          },
         },
-      });
+      })
 
-      // Notify user
-      await notificationService.create({
-        userId: investment.userId,
-        type: NotificationType.DEPOSIT_APPROVED,
-        priority: 'HIGH',
-        title: 'Deposit Approved!',
-        message: `Your deposit of $${investment.amount / 100} has been approved. Your investment is now active.`,
-        actionUrl: `/dashboard/investments/${investmentId}`,
-      });
+      return { investment: updatedInvestment }
+    })
 
-      logger.info('Deposit approved', {
+    await createNotification({
+      userId: investment.userId,
+      type: NotificationType.INVESTMENT_APPROVED,
+      priority: NotificationPriority.HIGH,
+      title: 'Investment Activated',
+      message: `Your ${investment.plan.name} investment is now active with $${formatAmount(investment.amount)} invested.`,
+      link: `/dashboard/investments/${investment.id}`,
+      data: {
         investmentId,
-        userId: investment.userId,
-        amount: investment.amount,
-        approvedBy,
-      });
+        planId: investment.planId,
+        amount: formatAmount(investment.amount),
+        nextProfitDate: investment.nextProfitDate,
+      },
+    })
 
-      return updatedInvestment;
-    });
+    logger.info('Deposit approved and auto-invested', {
+      investmentId,
+      userId: investment.userId,
+      amount: formatAmount(investment.amount),
+      approvedBy,
+    })
+
+    return investment
   }
 
   /**
-   * Admin rejects deposit
+   * Admin rejects a pending investment deposit
    */
   async rejectDeposit(
     investmentId: string,
     rejectedBy: string,
     reason: string
   ): Promise<Investment> {
-    return await prisma.$transaction(async (tx) => {
+    const { investment } = await prisma.$transaction(async (tx) => {
       const investment = await tx.investment.findUnique({
         where: { id: investmentId },
-        include: { plan: true },
-      });
+        include: {
+          plan: true,
+        },
+      })
 
       if (!investment) {
-        throw new AppError('Investment not found', 404);
+        throw new AppError('Investment not found', 404)
       }
 
-      if (investment.status !== InvestmentStatus.PENDING_DEPOSIT) {
-        throw new AppError('Investment is not pending approval', 400);
+      if (investment.status !== InvestmentStatus.PENDING) {
+        throw new AppError('Investment is not pending approval', 400)
       }
 
-      // Update investment
-      const updatedInvestment = await tx.investment.update({
-        where: { id: investmentId },
-        data: {
-          status: InvestmentStatus.CANCELLED,
-          rejectionReason: reason,
-        },
-        include: { plan: true },
-      });
-
-      // Update transaction
-      await tx.transaction.updateMany({
+      const depositTransaction = await tx.transaction.findFirst({
         where: {
           investmentId,
           type: TransactionType.DEPOSIT,
-          status: TransactionStatus.PENDING,
         },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      await tx.investment.update({
+        where: { id: investmentId },
         data: {
-          status: TransactionStatus.CANCELLED,
-          processedBy: rejectedBy,
-          failureReason: reason,
+          status: InvestmentStatus.CANCELLED,
+          endDate: new Date(),
         },
-      });
+      })
 
-      // Notify user
-      await notificationService.create({
-        userId: investment.userId,
-        type: NotificationType.DEPOSIT_REJECTED,
-        priority: 'HIGH',
-        title: 'Deposit Rejected',
-        message: `Your deposit was rejected. Reason: ${reason}`,
-        actionUrl: `/dashboard/investments/${investmentId}`,
-      });
+      if (depositTransaction) {
+        await tx.transaction.update({
+          where: { id: depositTransaction.id },
+          data: {
+            status: TransactionStatus.REJECTED,
+            adminNotes: reason,
+            approvedBy: rejectedBy,
+            approvedAt: new Date(),
+          },
+        })
+      }
 
-      logger.info('Deposit rejected', {
+      return { investment }
+    })
+
+    await createNotification({
+      userId: investment.userId,
+      type: NotificationType.DEPOSIT_REJECTED,
+      priority: NotificationPriority.HIGH,
+      title: 'Deposit Rejected',
+      message: `Your deposit for the ${investment.plan?.name ?? 'selected'} plan was rejected. Reason: ${reason}.`,
+      link: `/dashboard/investments`,
+      data: {
         investmentId,
-        userId: investment.userId,
-        rejectedBy,
         reason,
-      });
+      },
+    })
 
-      return updatedInvestment;
-    });
+    logger.info('Deposit rejected', {
+      investmentId,
+      userId: investment.userId,
+      reason,
+      rejectedBy,
+    })
+
+    return investment
   }
 
   /**
-   * Get user's active investments
+   * List investments for a user with plan details
    */
   async getUserInvestments(userId: string) {
     return prisma.investment.findMany({
       where: { userId },
       include: {
         plan: true,
+        transactions: {
+          orderBy: { createdAt: 'desc' },
+        },
+        profitHistory: {
+          orderBy: { distributedAt: 'desc' },
+          take: 5,
+        },
       },
       orderBy: { createdAt: 'desc' },
-    });
+    })
   }
 
   /**
-   * Get pending deposits for admin approval
+   * Pending investments awaiting approval
    */
   async getPendingDeposits(page: number = 1, limit: number = 20) {
-    const skip = (page - 1) * limit;
+    const skip = (page - 1) * limit
 
     const [investments, total] = await Promise.all([
       prisma.investment.findMany({
         where: {
-          status: InvestmentStatus.PENDING_DEPOSIT,
+          status: InvestmentStatus.PENDING,
         },
         include: {
           user: {
@@ -289,17 +375,22 @@ export class InvestmentService {
             },
           },
           plan: true,
+          transactions: {
+            where: { type: TransactionType.DEPOSIT },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
         },
-        orderBy: { depositedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
       prisma.investment.count({
         where: {
-          status: InvestmentStatus.PENDING_DEPOSIT,
+          status: InvestmentStatus.PENDING,
         },
       }),
-    ]);
+    ])
 
     return {
       investments,
@@ -307,32 +398,33 @@ export class InvestmentService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 1,
       },
-    };
+    }
   }
 
   /**
-   * Get investment statistics
+   * Investment analytics for admin dashboards
    */
   async getInvestmentStats() {
-    const [totalInvestments, activeInvestments, totalAUM] = await Promise.all([
+    const [totalInvestments, activeInvestments, aggregates] = await Promise.all([
       prisma.investment.count(),
       prisma.investment.count({
         where: { status: InvestmentStatus.ACTIVE },
       }),
       prisma.investment.aggregate({
         where: { status: InvestmentStatus.ACTIVE },
-        _sum: { currentValue: true },
+        _sum: { amount: true, totalProfitEarned: true },
       }),
-    ]);
+    ])
 
     return {
       totalInvestments,
       activeInvestments,
-      totalAUM: totalAUM._sum.currentValue || 0,
-    };
+      totalAUM: formatAmount(aggregates._sum.amount || 0),
+      totalProfitDistributed: formatAmount(aggregates._sum.totalProfitEarned || 0),
+    }
   }
 }
 
-export const investmentService = new InvestmentService();
+export const investmentService = new InvestmentService()

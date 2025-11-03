@@ -1,151 +1,120 @@
-import { prisma } from '@/lib/db/prisma';
-import { redisPublisher } from '@/lib/redis/client';
-import { RedisKeys } from '@/lib/redis/keys';
-import { NotificationType, NotificationPriority, Notification } from '@prisma/client';
-import { logger } from '@/lib/utils/logger';
+import { prisma } from '@/lib/db/prisma'
+import { publishNotification } from '@/lib/redis/client'
+import {
+  NotificationType,
+  NotificationPriority,
+  Notification,
+} from '@prisma/client'
+import { logger } from '@/lib/utils/logger'
 
 export interface CreateNotificationInput {
-  userId?: string; // undefined for broadcast notifications
-  type: NotificationType;
-  priority?: NotificationPriority;
-  title: string;
-  message: string;
-  actionUrl?: string;
-  actionLabel?: string;
-  metadata?: any;
-  expiresAt?: Date;
+  userId?: string
+  type: NotificationType
+  priority?: NotificationPriority
+  title: string
+  message: string
+  link?: string
+  data?: Record<string, unknown>
 }
 
 export class NotificationService {
-  /**
-   * Create a notification and broadcast it via Redis
-   */
   async create(input: CreateNotificationInput): Promise<Notification> {
-    try {
-      const notification = await prisma.notification.create({
-        data: {
-          userId: input.userId,
-          type: input.type,
-          priority: input.priority || NotificationPriority.MEDIUM,
-          title: input.title,
-          message: input.message,
-          actionUrl: input.actionUrl,
-          actionLabel: input.actionLabel,
-          metadata: input.metadata,
-          expiresAt: input.expiresAt,
-        },
-      });
+    const notification = await prisma.notification.create({
+      data: {
+        userId: input.userId,
+        type: input.type,
+        priority: input.priority || NotificationPriority.MEDIUM,
+        title: input.title,
+        message: input.message,
+        link: input.link,
+        data: input.data ? JSON.parse(JSON.stringify(input.data)) : undefined,
+      },
+    })
 
-      // Broadcast via Redis for real-time delivery
-      await this.broadcast(notification);
+    await this.broadcast(notification)
 
-      logger.info('Notification created', {
-        notificationId: notification.id,
-        userId: notification.userId,
-        type: notification.type,
-      });
+    logger.info('Notification created', {
+      notificationId: notification.id,
+      userId: notification.userId,
+      type: notification.type,
+    })
 
-      return notification;
-    } catch (error) {
-      logger.error('Failed to create notification', error);
-      throw error;
-    }
+    return notification
   }
 
-  /**
-   * Create multiple notifications (e.g., for broadcasts)
-   */
   async createMany(inputs: CreateNotificationInput[]): Promise<Notification[]> {
-    const notifications: Notification[] = [];
+    const notifications: Notification[] = []
 
     for (const input of inputs) {
-      const notification = await this.create(input);
-      notifications.push(notification);
+      notifications.push(await this.create(input))
     }
 
-    return notifications;
+    return notifications
   }
 
-  /**
-   * Broadcast notification to specific user
-   */
   async broadcast(notification: Notification): Promise<void> {
     try {
       const channel = notification.userId
         ? `user:${notification.userId}:notifications`
-        : 'notifications:broadcast';
+        : 'notifications:broadcast'
 
-      await redisPublisher.publish(
-        channel,
-        JSON.stringify({
-          type: 'notification',
-          data: notification,
-        })
-      );
+      await publishNotification(channel, {
+        type: 'notification',
+        notification,
+      })
 
       logger.debug('Notification broadcasted', {
         notificationId: notification.id,
         channel,
-      });
+      })
     } catch (error) {
-      logger.error('Failed to broadcast notification', error);
+      logger.error('Failed to broadcast notification', error as Error)
     }
   }
 
-  /**
-   * Mark notification as read
-   */
   async markAsRead(notificationId: string, userId: string): Promise<Notification> {
-    const notification = await prisma.notification.update({
+    return prisma.notification.update({
       where: {
         id: notificationId,
         userId,
       },
       data: {
-        isRead: true,
+        read: true,
         readAt: new Date(),
       },
-    });
-
-    return notification;
+    })
   }
 
-  /**
-   * Mark all notifications as read for a user
-   */
   async markAllAsRead(userId: string): Promise<number> {
     const result = await prisma.notification.updateMany({
       where: {
         userId,
-        isRead: false,
+        read: false,
       },
       data: {
-        isRead: true,
+        read: true,
         readAt: new Date(),
       },
-    });
+    })
 
-    return result.count;
+    return result.count
   }
 
-  /**
-   * Get user notifications with pagination
-   */
   async getUserNotifications(
     userId: string,
     options: {
-      page?: number;
-      limit?: number;
-      unreadOnly?: boolean;
+      page?: number
+      limit?: number
+      unreadOnly?: boolean
     } = {}
   ) {
-    const { page = 1, limit = 20, unreadOnly = false } = options;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 20, unreadOnly = false } = options
+    const skip = (page - 1) * limit
 
     const where = {
       userId,
-      ...(unreadOnly && { isRead: false }),
-    };
+      ...(unreadOnly ? { read: false } : {}),
+    }
 
     const [notifications, total] = await Promise.all([
       prisma.notification.findMany({
@@ -155,7 +124,7 @@ export class NotificationService {
         take: limit,
       }),
       prisma.notification.count({ where }),
-    ]);
+    ])
 
     return {
       notifications,
@@ -163,54 +132,29 @@ export class NotificationService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 1,
       },
-    };
+    }
   }
 
-  /**
-   * Get unread count for a user
-   */
   async getUnreadCount(userId: string): Promise<number> {
     return prisma.notification.count({
       where: {
         userId,
-        isRead: false,
+        read: false,
       },
-    });
+    })
   }
 
-  /**
-   * Delete notification
-   */
   async delete(notificationId: string, userId: string): Promise<void> {
     await prisma.notification.delete({
       where: {
         id: notificationId,
         userId,
       },
-    });
+    })
   }
 
-  /**
-   * Delete expired notifications (cleanup job)
-   */
-  async deleteExpired(): Promise<number> {
-    const result = await prisma.notification.deleteMany({
-      where: {
-        expiresAt: {
-          lte: new Date(),
-        },
-      },
-    });
-
-    logger.info('Expired notifications deleted', { count: result.count });
-    return result.count;
-  }
-
-  /**
-   * Admin broadcast to all users
-   */
   async broadcastToAll(input: Omit<CreateNotificationInput, 'userId'>): Promise<void> {
     const notification = await prisma.notification.create({
       data: {
@@ -218,25 +162,20 @@ export class NotificationService {
         priority: input.priority || NotificationPriority.MEDIUM,
         title: input.title,
         message: input.message,
-        actionUrl: input.actionUrl,
-        actionLabel: input.actionLabel,
-        metadata: input.metadata,
+        link: input.link,
+        data: input.data ? JSON.parse(JSON.stringify(input.data)) : undefined,
       },
-    });
+    })
 
-    // Broadcast to all connected clients
-    await redisPublisher.publish(
-      'notifications:broadcast',
-      JSON.stringify({
-        type: 'broadcast',
-        data: notification,
-      })
-    );
+    await publishNotification('notifications:broadcast', {
+      type: 'broadcast',
+      notification,
+    })
 
     logger.info('Broadcast notification sent', {
       notificationId: notification.id,
-    });
+    })
   }
 }
 
-export const notificationService = new NotificationService();
+export const notificationService = new NotificationService()
