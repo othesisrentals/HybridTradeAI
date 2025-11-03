@@ -9,38 +9,43 @@ async function initRevenueStreams() {
     {
       name: 'Algorithmic Trading',
       type: RevenueStreamType.ALGORITHMIC_TRADING,
-      targetPercent: 40.0,
-      description: 'Automated trading strategies using advanced algorithms',
+      targetAllocation: 40.0,
+      currentROI: 12.0,
+      isActive: true,
     },
     {
       name: 'Crypto Staking',
       type: RevenueStreamType.CRYPTO_STAKING,
-      targetPercent: 25.0,
-      description: 'Earning rewards through cryptocurrency staking',
+      targetAllocation: 25.0,
+      currentROI: 8.0,
+      isActive: true,
     },
     {
       name: 'Copy Trading',
       type: RevenueStreamType.COPY_TRADING,
-      targetPercent: 15.0,
-      description: 'Following successful traders and copying their strategies',
+      targetAllocation: 15.0,
+      currentROI: 15.0,
+      isActive: true,
     },
     {
       name: 'Advertising & Tasks',
       type: RevenueStreamType.ADVERTISING,
-      targetPercent: 20.0,
-      description: 'Revenue from ad networks and user task completions',
+      targetAllocation: 15.0,
+      currentROI: 5.0,
+      isActive: true,
     },
     {
       name: 'Management Fees',
       type: RevenueStreamType.MANAGEMENT_FEES,
-      targetPercent: 10.0,
-      description: '10% fee on all profits distributed to users',
+      targetAllocation: 5.0,
+      currentROI: 10.0,
+      isActive: true,
     },
   ];
 
   for (const stream of streams) {
     await prisma.revenueStream.upsert({
-      where: { name: stream.name },
+      where: { type: stream.type },
       create: stream,
       update: stream,
     });

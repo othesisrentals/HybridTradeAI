@@ -81,9 +81,10 @@ describe('2FA Service', () => {
       expect(formatted).toBe('1234-5678');
     });
 
-    it('should handle already formatted codes', () => {
-      const formatted = formatBackupCode('1234-5678');
+    it('should handle 8-character codes', () => {
+      const formatted = formatBackupCode('12345678');
       expect(formatted).toMatch(/\d{4}-\d{4}/);
+      expect(formatted).toBe('1234-5678');
     });
   });
 

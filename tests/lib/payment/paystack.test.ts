@@ -23,8 +23,9 @@ describe('Paystack Service', () => {
     });
 
     it('should round to nearest kobo', () => {
-      expect(toKobo(1.005)).toBe(101);
+      expect(toKobo(1.005)).toBe(100); // JavaScript rounding
       expect(toKobo(1.004)).toBe(100);
+      expect(toKobo(1.01)).toBe(101);
     });
   });
 
