@@ -1,0 +1,25 @@
+import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/router';
+
+export default function Register(){
+  const [email,setEmail]=useState('');
+  const [password,setPassword]=useState('');
+  const router=useRouter();
+  const handleRegister=async(e:any)=>{
+    e.preventDefault();
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (!error) router.push('/dashboard');
+    else alert('Registration failed');
+  };
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <form onSubmit={handleRegister} className="w-full max-w-md p-6 glass-card">
+        <h2 className="text-xl font-bold mb-4">Register</h2>
+        <input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="Email" className="w-full mb-3 p-2" />
+        <input value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Password" type="password" className="w-full mb-3 p-2" />
+        <button className="w-full bg-primary text-white p-2">Register</button>
+      </form>
+    </div>
+  );
+}
