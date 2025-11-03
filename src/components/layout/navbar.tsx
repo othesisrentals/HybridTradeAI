@@ -1,19 +1,21 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
+import { useSession, signOut } from '../../../lib/auth'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Bell, LogOut, User, Settings } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
-export function Navbar() {
+export function Navbar ()
+{
   const { data: session } = useSession()
   const router = useRouter()
 
-  const handleSignOut = async () => {
-    await signOut({ redirect: false })
-    router.push('/auth/signin')
+  const handleSignOut = async () =>
+  {
+    await signOut()
+    router.push( '/auth/signin' )
   }
 
   return (
@@ -25,7 +27,7 @@ export function Navbar() {
               HybridTradeAI
             </span>
           </Link>
-          {session && (
+          { session && (
             <div className="hidden md:flex items-center gap-4">
               <Link
                 href="/dashboard"
@@ -51,25 +53,25 @@ export function Navbar() {
               >
                 KYC
               </Link>
-              {(session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN') && (
+              { ( session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN' ) && (
                 <Link
                   href="/admin"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Admin
                 </Link>
-              )}
+              ) }
             </div>
-          )}
+          ) }
         </div>
 
-        {session ? (
+        { session ? (
           <div className="flex items-center gap-4">
             <NotificationBell />
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleSignOut}
+              onClick={ handleSignOut }
               title="Sign out"
             >
               <LogOut className="h-5 w-5" />
@@ -84,7 +86,7 @@ export function Navbar() {
               <Link href="/auth/signup">Sign Up</Link>
             </Button>
           </div>
-        )}
+        ) }
       </div>
     </nav>
   )

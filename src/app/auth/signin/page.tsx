@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import React, { useState } from 'react'
+import { signIn } from '../../../../lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -23,11 +23,7 @@ export default function SignInPage() {
     setLoading(true)
 
     try {
-      const result = await signIn('credentials', {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
-      })
+      const result = await signIn(formData.email, formData.password)
 
       if (result?.error) {
         toast.error('Invalid email or password')

@@ -2,7 +2,8 @@
 const mockUser = {
   id: 'mock-user-id',
   email: 'dev@local',
-  name: 'Development User'
+  name: 'Development User',
+  role: 'USER' as const
 };
 
 // Mock SessionProvider component
