@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import React, { useState } from 'react'
+import { signIn } from '../../../../lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -10,36 +10,39 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'react-hot-toast'
 
-export default function SignInPage() {
+export default function SignInPage ()
+{
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
+  const [ loading, setLoading ] = useState( false )
+  const [ formData, setFormData ] = useState( {
     email: '',
     password: '',
-  })
+  } )
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async ( e: React.FormEvent ) =>
+  {
     e.preventDefault()
-    setLoading(true)
+    setLoading( true )
 
-    try {
-      const result = await signIn('credentials', {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
-      })
+    try
+    {
+      const result = await signIn( formData.email, formData.password )
 
-      if (result?.error) {
-        toast.error('Invalid email or password')
-      } else {
-        toast.success('Signed in successfully')
-        router.push('/dashboard')
+      if ( result?.error )
+      {
+        toast.error( 'Invalid email or password' )
+      } else
+      {
+        toast.success( 'Signed in successfully' )
+        router.push( '/dashboard' )
         router.refresh()
       }
-    } catch (error) {
-      toast.error('An error occurred. Please try again.')
-    } finally {
-      setLoading(false)
+    } catch ( error )
+    {
+      toast.error( 'An error occurred. Please try again.' )
+    } finally
+    {
+      setLoading( false )
     }
   }
 
@@ -53,17 +56,17 @@ export default function SignInPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={ handleSubmit } className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                value={ formData.email }
+                onChange={ ( e ) => setFormData( { ...formData, email: e.target.value } ) }
                 required
-                disabled={loading}
+                disabled={ loading }
               />
             </div>
             <div className="space-y-2">
@@ -71,14 +74,14 @@ export default function SignInPage() {
               <Input
                 id="password"
                 type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                value={ formData.password }
+                onChange={ ( e ) => setFormData( { ...formData, password: e.target.value } ) }
                 required
-                disabled={loading}
+                disabled={ loading }
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
+            <Button type="submit" className="w-full" disabled={ loading }>
+              { loading ? 'Signing in...' : 'Sign In' }
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">

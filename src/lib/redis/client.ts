@@ -32,6 +32,10 @@ export const redisSubscriber =
     enableReadyCheck: false,
   })
 
+// Aliases for backward compatibility
+export const redisClient = redis
+export const redisPublisher = redis
+
 if (process.env.NODE_ENV !== 'production') {
   globalForRedis.redis = redis
   globalForRedis.redisSubscriber = redisSubscriber
