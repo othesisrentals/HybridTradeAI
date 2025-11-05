@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
-import { redisSubscriber } from '@/lib/redis/client';
 import { logger } from '@/lib/utils/logger';
 
 /**
@@ -33,6 +32,17 @@ export async function GET(req: NextRequest) {
 
         send('connected', { message: 'Connected to notification stream' });
 
+        // Lazy import Redis to avoid build-time issues
+        let redisSubscriber;
+        try {
+          const { redisSubscriber: subscriber } = await import('@/lib/redis/client');
+          redisSubscriber = subscriber;
+        } catch (error) {
+          logger.error('Redis not available for SSE stream');
+          controller.close();
+          return;
+        }
+
         // Subscribe to user-specific notifications
         const userChannel = `user:${userId}:notifications`;
         const broadcastChannel = 'notifications:broadcast';
@@ -43,7 +53,7 @@ export async function GET(req: NextRequest) {
         subscriber.on('message', (channel, message) => {
           try {
             const data = JSON.parse(message);
-            
+
             if (data.type === 'notification') {
               send('notification', data.data);
             } else if (data.type === 'broadcast') {
@@ -89,3 +99,4 @@ export async function GET(req: NextRequest) {
     return new Response('Internal Server Error', { status: 500 });
   }
 }
+

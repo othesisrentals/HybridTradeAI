@@ -164,7 +164,7 @@ async function main() {
 
   // Create admin user
   console.log('Creating admin user...')
-  const hashedPassword = await bcrypt.hash('admin123', 10)
+  const hashedPassword = await bcrypt.hash('Admin123!', 10)
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@hybridtradeai.com' },
     update: {},
@@ -268,7 +268,7 @@ async function main() {
   console.log('? Database seed completed!')
   console.log(`\nAdmin credentials:`)
   console.log(`Email: admin@hybridtradeai.com`)
-  console.log(`Password: admin123`)
+  console.log(`Password: Admin123!`)
   console.log(`\n??  Please change the admin password after first login!`)
 }
 

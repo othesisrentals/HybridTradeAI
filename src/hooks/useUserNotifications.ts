@@ -111,3 +111,4 @@ export function useNotifications(options?: { limit?: number; unreadOnly?: boolea
     markAsRead,
   }
 }
+

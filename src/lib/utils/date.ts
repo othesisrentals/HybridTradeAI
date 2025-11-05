@@ -49,3 +49,4 @@ export function addMinutes(date: Date, minutes: number): Date {
   result.setMinutes(result.getMinutes() + minutes);
   return result;
 }
+

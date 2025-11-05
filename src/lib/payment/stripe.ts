@@ -1,14 +1,20 @@
 import Stripe from 'stripe';
 import { logger } from '@/lib/utils/logger';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not defined');
-}
+let stripeInstance: Stripe | null = null;
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16',
-  typescript: true,
-});
+function getStripeClient(): Stripe {
+  if (!stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is not defined');
+    }
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-10-29.clover',
+      typescript: true,
+    });
+  }
+  return stripeInstance;
+}
 
 export interface CreatePaymentIntentParams {
   amount: number; // in cents
@@ -19,6 +25,7 @@ export interface CreatePaymentIntentParams {
 
 export async function createPaymentIntent(params: CreatePaymentIntentParams) {
   try {
+    const stripe = getStripeClient();
     const paymentIntent = await stripe.paymentIntents.create({
       amount: params.amount,
       currency: 'usd',
@@ -47,6 +54,7 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams) {
 
 export async function retrievePaymentIntent(paymentIntentId: string) {
   try {
+    const stripe = getStripeClient();
     return await stripe.paymentIntents.retrieve(paymentIntentId);
   } catch (error) {
     logger.error('Failed to retrieve payment intent', error);
@@ -56,6 +64,7 @@ export async function retrievePaymentIntent(paymentIntentId: string) {
 
 export async function refundPayment(paymentIntentId: string, amount?: number) {
   try {
+    const stripe = getStripeClient();
     const refund = await stripe.refunds.create({
       payment_intent: paymentIntentId,
       amount,
@@ -85,9 +94,11 @@ export function constructWebhookEvent(
   }
 
   try {
+    const stripe = getStripeClient();
     return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (error) {
     logger.error('Failed to construct webhook event', error);
     throw error;
   }
 }
+

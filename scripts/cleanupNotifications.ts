@@ -5,23 +5,13 @@ const prisma = new PrismaClient();
 async function cleanupNotifications() {
   console.log('Starting notification cleanup...');
 
-  // Delete expired notifications
-  const expiredResult = await prisma.notification.deleteMany({
-    where: {
-      expiresAt: {
-        lte: new Date(),
-      },
-    },
-  });
-  console.log(`? Deleted ${expiredResult.count} expired notifications`);
-
   // Delete read notifications older than 30 days
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const oldResult = await prisma.notification.deleteMany({
     where: {
-      isRead: true,
+      read: true,
       readAt: {
         lte: thirtyDaysAgo,
       },

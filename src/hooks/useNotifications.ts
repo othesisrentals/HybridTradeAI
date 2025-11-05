@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Notification } from '@prisma/client';
+import { Notification as PrismaNotification } from '@prisma/client';
 
 export interface NotificationEvent {
   type: 'notification' | 'broadcast';
-  data: Notification;
+  data: PrismaNotification;
 }
 
 export function useNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<PrismaNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -90,7 +90,7 @@ export function useNotifications() {
 
       eventSource.addEventListener('notification', (event) => {
         try {
-          const notification: Notification = JSON.parse(event.data);
+          const notification: PrismaNotification = JSON.parse(event.data);
           setNotifications((prev) => [notification, ...prev]);
           setUnreadCount((prev) => prev + 1);
           
@@ -108,7 +108,7 @@ export function useNotifications() {
 
       eventSource.addEventListener('broadcast', (event) => {
         try {
-          const notification: Notification = JSON.parse(event.data);
+          const notification: PrismaNotification = JSON.parse(event.data);
           setNotifications((prev) => [notification, ...prev]);
           setUnreadCount((prev) => prev + 1);
         } catch (error) {
@@ -157,3 +157,4 @@ export function useNotifications() {
     refresh: fetchNotifications,
   };
 }
+

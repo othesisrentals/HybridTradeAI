@@ -101,16 +101,14 @@ export class ProfitEngine {
       const managementFee = Math.round((grossProfit * MANAGEMENT_FEE_PERCENT) / 100);
       const netProfit = grossProfit - managementFee;
 
-      // Update investment current value
+      // Update investment profit tracking
       await tx.investment.update({
         where: { id: investment.id },
         data: {
-          totalEarned: {
+          totalProfitEarned: {
             increment: netProfit,
           },
-          currentValue: {
-            increment: netProfit,
-          },
+          lastProfitDate: new Date(),
         },
       });
 
@@ -129,9 +127,8 @@ export class ProfitEngine {
         data: {
           userId: investment.userId,
           investmentId: investment.id,
-          investmentAmount: investment.amount,
-          roiPercent,
-          grossProfit,
+          amount: grossProfit,
+          roiPercentage: roiPercent,
           managementFee,
           netProfit,
           weekNumber,
@@ -147,9 +144,6 @@ export class ProfitEngine {
           status: TransactionStatus.COMPLETED,
           amount: netProfit,
           description: `Weekly profit - ${roiPercent.toFixed(2)}% ROI (Week ${weekNumber})`,
-          balanceAfter: updatedUser.investedBalance + updatedUser.withdrawalBalance,
-          investedBalanceAfter: updatedUser.investedBalance,
-          withdrawalBalanceAfter: updatedUser.withdrawalBalance,
         },
       });
 
@@ -160,11 +154,8 @@ export class ProfitEngine {
           investmentId: investment.id,
           type: TransactionType.PLATFORM_FEE,
           status: TransactionStatus.COMPLETED,
-          amount: -managementFee,
+          amount: managementFee,
           description: `Management fee - ${MANAGEMENT_FEE_PERCENT}%`,
-          balanceAfter: updatedUser.investedBalance + updatedUser.withdrawalBalance,
-          investedBalanceAfter: updatedUser.investedBalance,
-          withdrawalBalanceAfter: updatedUser.withdrawalBalance,
         },
       });
 
@@ -213,8 +204,8 @@ export class ProfitEngine {
       throw new Error('Plan not found');
     }
 
-    const minProfit = Math.round((investmentAmount * plan.minRoiPercent) / 100);
-    const maxProfit = Math.round((investmentAmount * plan.maxRoiPercent) / 100);
+    const minProfit = Math.round((investmentAmount * Number(plan.roiMin)) / 100);
+    const maxProfit = Math.round((investmentAmount * Number(plan.roiMax)) / 100);
 
     const minFee = Math.round((minProfit * MANAGEMENT_FEE_PERCENT) / 100);
     const maxFee = Math.round((maxProfit * MANAGEMENT_FEE_PERCENT) / 100);
@@ -282,14 +273,14 @@ export class ProfitEngine {
         where,
         _sum: {
           netProfit: true,
-          grossProfit: true,
+          amount: true,
         },
         _count: true,
       }),
       prisma.profitHistory.aggregate({
         where,
         _avg: {
-          roiPercent: true,
+          roiPercentage: true,
         },
       }),
       prisma.profitHistory.aggregate({
@@ -302,8 +293,8 @@ export class ProfitEngine {
 
     return {
       totalNetProfit: totalProfits._sum.netProfit || 0,
-      totalGrossProfit: totalProfits._sum.grossProfit || 0,
-      averageROI: averageROI._avg.roiPercent || 0,
+      totalGrossProfit: totalProfits._sum.amount || 0,
+      averageROI: averageROI._avg.roiPercentage || 0,
       totalFees: totalFees._sum.managementFee || 0,
       distributionCount: totalProfits._count,
     };
@@ -311,3 +302,4 @@ export class ProfitEngine {
 }
 
 export const profitEngine = new ProfitEngine();
+

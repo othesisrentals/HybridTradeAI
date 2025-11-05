@@ -29,16 +29,16 @@ export class InvestmentService {
       throw new AppError('Invalid or inactive plan', 400);
     }
 
-    if (amount < plan.minAmount) {
+    if (amount < Number(plan.minAmount)) {
       throw new AppError(
-        `Minimum investment for ${plan.name} is ${plan.minAmount / 100}`,
+        `Minimum investment for ${plan.name} is $${Number(plan.minAmount) / 100}`,
         400
       );
     }
 
-    if (plan.maxAmount && amount > plan.maxAmount) {
+    if (plan.maxAmount && amount > Number(plan.maxAmount)) {
       throw new AppError(
-        `Maximum investment for ${plan.name} is ${plan.maxAmount / 100}`,
+        `Maximum investment for ${plan.name} is $${Number(plan.maxAmount) / 100}`,
         400
       );
     }
@@ -49,9 +49,8 @@ export class InvestmentService {
         userId,
         planId,
         amount,
-        currentValue: amount,
-        status: InvestmentStatus.PENDING_DEPOSIT,
-        depositedAt: new Date(),
+        status: InvestmentStatus.PENDING,
+        startDate: new Date(),
       },
       include: {
         plan: true,
@@ -67,9 +66,6 @@ export class InvestmentService {
         status: TransactionStatus.PENDING,
         amount,
         description: `Deposit for ${plan.name} plan`,
-        balanceAfter: 0,
-        investedBalanceAfter: 0,
-        withdrawalBalanceAfter: 0,
       },
     });
 
@@ -109,7 +105,7 @@ export class InvestmentService {
         throw new AppError('Investment not found', 404);
       }
 
-      if (investment.status !== InvestmentStatus.PENDING_DEPOSIT) {
+      if (investment.status !== InvestmentStatus.PENDING) {
         throw new AppError('Investment is not pending approval', 400);
       }
 
@@ -118,9 +114,7 @@ export class InvestmentService {
         where: { id: investmentId },
         data: {
           status: InvestmentStatus.ACTIVE,
-          approvedAt: new Date(),
-          startedAt: new Date(),
-          approvedBy,
+          startDate: new Date(),
         },
         include: { plan: true },
       });
@@ -144,11 +138,8 @@ export class InvestmentService {
         },
         data: {
           status: TransactionStatus.COMPLETED,
-          processedBy: approvedBy,
+          approvedBy,
           approvedAt: new Date(),
-          balanceAfter: user.investedBalance + user.withdrawalBalance,
-          investedBalanceAfter: user.investedBalance,
-          withdrawalBalanceAfter: user.withdrawalBalance,
         },
       });
 
@@ -161,9 +152,6 @@ export class InvestmentService {
           status: TransactionStatus.COMPLETED,
           amount: investment.amount,
           description: `Investment activated - ${investment.plan.name}`,
-          balanceAfter: user.investedBalance + user.withdrawalBalance,
-          investedBalanceAfter: user.investedBalance,
-          withdrawalBalanceAfter: user.withdrawalBalance,
         },
       });
 
@@ -173,7 +161,7 @@ export class InvestmentService {
         type: NotificationType.DEPOSIT_APPROVED,
         priority: 'HIGH',
         title: 'Deposit Approved!',
-        message: `Your deposit of $${investment.amount / 100} has been approved. Your investment is now active.`,
+        message: `Your deposit of $${Number(investment.amount) / 100} has been approved. Your investment is now active.`,
         actionUrl: `/dashboard/investments/${investmentId}`,
       });
 
@@ -206,7 +194,7 @@ export class InvestmentService {
         throw new AppError('Investment not found', 404);
       }
 
-      if (investment.status !== InvestmentStatus.PENDING_DEPOSIT) {
+      if (investment.status !== InvestmentStatus.PENDING) {
         throw new AppError('Investment is not pending approval', 400);
       }
 
@@ -215,7 +203,6 @@ export class InvestmentService {
         where: { id: investmentId },
         data: {
           status: InvestmentStatus.CANCELLED,
-          rejectionReason: reason,
         },
         include: { plan: true },
       });
@@ -228,9 +215,7 @@ export class InvestmentService {
           status: TransactionStatus.PENDING,
         },
         data: {
-          status: TransactionStatus.CANCELLED,
-          processedBy: rejectedBy,
-          failureReason: reason,
+          status: TransactionStatus.REJECTED,
         },
       });
 
@@ -277,7 +262,7 @@ export class InvestmentService {
     const [investments, total] = await Promise.all([
       prisma.investment.findMany({
         where: {
-          status: InvestmentStatus.PENDING_DEPOSIT,
+          status: InvestmentStatus.PENDING,
         },
         include: {
           user: {
@@ -290,13 +275,13 @@ export class InvestmentService {
           },
           plan: true,
         },
-        orderBy: { depositedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
       prisma.investment.count({
         where: {
-          status: InvestmentStatus.PENDING_DEPOSIT,
+          status: InvestmentStatus.PENDING,
         },
       }),
     ]);
@@ -323,16 +308,17 @@ export class InvestmentService {
       }),
       prisma.investment.aggregate({
         where: { status: InvestmentStatus.ACTIVE },
-        _sum: { currentValue: true },
+        _sum: { amount: true },
       }),
     ]);
 
     return {
       totalInvestments,
       activeInvestments,
-      totalAUM: totalAUM._sum.currentValue || 0,
+      totalAUM: totalAUM._sum.amount || 0,
     };
   }
 }
 
 export const investmentService = new InvestmentService();
+

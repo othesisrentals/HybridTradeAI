@@ -50,14 +50,17 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = await hash(password, 12);
 
+    // Generate referral code
+    const userReferralCode = `REF${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+
     // Create user
     const user = await prisma.user.create({
       data: {
         email,
-        hashedPassword,
+        password: hashedPassword,
         name,
-        phone,
-        referredBy,
+        referralCode: userReferralCode,
+        ...(referredBy && { referredById: referredBy }),
       },
       select: {
         id: true,
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
@@ -99,3 +102,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

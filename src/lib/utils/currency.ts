@@ -46,3 +46,4 @@ export function calculateROI(investment: number, returns: number): number {
   if (investment === 0) return 0;
   return ((returns - investment) / investment) * 100;
 }
+

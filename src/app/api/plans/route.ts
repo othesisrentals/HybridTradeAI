@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   try {
     const plans = await prisma.plan.findMany({
       where: { isActive: true },
-      orderBy: { displayOrder: 'asc' },
+      orderBy: { type: 'asc' },
     });
 
     return NextResponse.json(plans);
@@ -16,3 +16,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+

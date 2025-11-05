@@ -95,7 +95,7 @@ npm run db:seed
 
 **Default Admin Credentials:**
 - Email: `admin@hybridtradeai.com`
-- Password: `admin123`
+- Password: `Admin123!`
 
 ?? **Change the admin password immediately after first login!**
 
