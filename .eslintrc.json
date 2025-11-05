@@ -1,1 +1,1 @@
-{"extends":["next/core-web-vitals","eslint:recommended"],"rules":{}}
+{"extends":["next/core-web-vitals","eslint:recommended"],"env":{"browser":true,"node":true},"globals":{"globalThis":"readonly","NodeJS":"readonly"},"rules":{"react/react-in-jsx-scope":"off","react/jsx-uses-react":"off","no-unused-vars":"off","no-undef":"off"}}

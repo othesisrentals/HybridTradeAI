@@ -46,3 +46,4 @@ export async function checkRole(allowedRoles: UserRole[]) {
   
   return user;
 }
+

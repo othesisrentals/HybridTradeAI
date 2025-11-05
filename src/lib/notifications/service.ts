@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db/prisma';
-import { redisPublisher } from '@/lib/redis/client';
 import { RedisKeys } from '@/lib/redis/keys';
 import { NotificationType, NotificationPriority, Notification } from '@prisma/client';
 import { logger } from '@/lib/utils/logger';
@@ -17,6 +16,11 @@ export interface CreateNotificationInput {
 }
 
 export class NotificationService {
+  private async getRedisPublisher() {
+    const { redisPublisher } = await import('@/lib/redis/client');
+    return redisPublisher;
+  }
+
   /**
    * Create a notification and broadcast it via Redis
    */
@@ -29,10 +33,8 @@ export class NotificationService {
           priority: input.priority || NotificationPriority.MEDIUM,
           title: input.title,
           message: input.message,
-          actionUrl: input.actionUrl,
-          actionLabel: input.actionLabel,
-          metadata: input.metadata,
-          expiresAt: input.expiresAt,
+          link: input.actionUrl,
+          data: input.metadata,
         },
       });
 
@@ -75,6 +77,7 @@ export class NotificationService {
         ? `user:${notification.userId}:notifications`
         : 'notifications:broadcast';
 
+      const redisPublisher = await this.getRedisPublisher();
       await redisPublisher.publish(
         channel,
         JSON.stringify({
@@ -102,7 +105,7 @@ export class NotificationService {
         userId,
       },
       data: {
-        isRead: true,
+        read: true,
         readAt: new Date(),
       },
     });
@@ -117,10 +120,10 @@ export class NotificationService {
     const result = await prisma.notification.updateMany({
       where: {
         userId,
-        isRead: false,
+        read: false,
       },
       data: {
-        isRead: true,
+        read: true,
         readAt: new Date(),
       },
     });
@@ -144,7 +147,7 @@ export class NotificationService {
 
     const where = {
       userId,
-      ...(unreadOnly && { isRead: false }),
+      ...(unreadOnly && { read: false }),
     };
 
     const [notifications, total] = await Promise.all([
@@ -175,7 +178,7 @@ export class NotificationService {
     return prisma.notification.count({
       where: {
         userId,
-        isRead: false,
+        read: false,
       },
     });
   }
@@ -196,16 +199,9 @@ export class NotificationService {
    * Delete expired notifications (cleanup job)
    */
   async deleteExpired(): Promise<number> {
-    const result = await prisma.notification.deleteMany({
-      where: {
-        expiresAt: {
-          lte: new Date(),
-        },
-      },
-    });
-
-    logger.info('Expired notifications deleted', { count: result.count });
-    return result.count;
+    // Since there's no expiresAt field, this method is not applicable
+    logger.info('Expired notifications cleanup skipped - no expiresAt field');
+    return 0;
   }
 
   /**
@@ -218,13 +214,13 @@ export class NotificationService {
         priority: input.priority || NotificationPriority.MEDIUM,
         title: input.title,
         message: input.message,
-        actionUrl: input.actionUrl,
-        actionLabel: input.actionLabel,
-        metadata: input.metadata,
+        link: input.actionUrl,
+        data: input.metadata,
       },
     });
 
     // Broadcast to all connected clients
+    const redisPublisher = await this.getRedisPublisher();
     await redisPublisher.publish(
       'notifications:broadcast',
       JSON.stringify({
@@ -240,3 +236,4 @@ export class NotificationService {
 }
 
 export const notificationService = new NotificationService();
+

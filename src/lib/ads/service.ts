@@ -38,13 +38,13 @@ export class AdTaskService {
       where: {
         status: AdTaskStatus.ACTIVE,
         OR: [
-          { minPlanType: null },
-          { minPlanType: 'STARTER' },
-          ...(hasPro ? [{ minPlanType: 'PRO' as const }] : []),
-          ...(hasElite ? [{ minPlanType: 'ELITE' as const }] : []),
+          { requiredPlan: null },
+          { requiredPlan: 'STARTER' },
+          ...(hasPro ? [{ requiredPlan: 'PRO' as const }] : []),
+          ...(hasElite ? [{ requiredPlan: 'ELITE' as const }] : []),
         ],
       },
-      orderBy: { totalReward: 'desc' },
+      orderBy: { totalEarning: 'desc' },
     });
 
     // Check availability for each task
@@ -59,7 +59,7 @@ export class AdTaskService {
           isAvailable,
           cooldownRemaining,
           dailyCompletions,
-          dailyLimitReached: dailyCompletions >= task.dailyLimit,
+          dailyLimitReached: task.dailyLimit ? dailyCompletions >= task.dailyLimit : false,
         };
       })
     );
@@ -81,7 +81,7 @@ export class AdTaskService {
     const task = await prisma.adTask.findUnique({ where: { id: taskId } });
     if (!task) return false;
 
-    if (dailyCompletions >= task.dailyLimit) return false;
+    if (task.dailyLimit && dailyCompletions >= task.dailyLimit) return false;
 
     return true;
   }
@@ -126,19 +126,17 @@ export class AdTaskService {
 
     return await prisma.$transaction(async (tx) => {
       // Calculate rewards
-      const userReward = Math.round((task.totalReward * (100 - AD_PLATFORM_FEE_PERCENT)) / 100);
-      const platformFee = task.totalReward - userReward;
+      const userReward = Math.round((Number(task.totalEarning) * (100 - AD_PLATFORM_FEE_PERCENT)) / 100);
+      const platformFee = Number(task.totalEarning) - userReward;
 
       // Create completion record
       const completion = await tx.adTaskCompletion.create({
         data: {
           userId,
           adTaskId: taskId,
-          userReward,
-          platformFee,
-          totalAmount: task.totalReward,
-          isVerified: true, // Auto-verify for now
-          verificationData,
+          rewardAmount: userReward,
+          platformCommission: platformFee,
+          status: 'VERIFIED', // Auto-verify for now
         },
       });
 
@@ -160,9 +158,6 @@ export class AdTaskService {
           status: TransactionStatus.COMPLETED,
           amount: userReward,
           description: `Ad task completed: ${task.title}`,
-          balanceAfter: user.investedBalance + user.withdrawalBalance,
-          investedBalanceAfter: user.investedBalance,
-          withdrawalBalanceAfter: user.withdrawalBalance,
         },
       });
 
@@ -170,11 +165,8 @@ export class AdTaskService {
       await tx.adTask.update({
         where: { id: taskId },
         data: {
-          totalCompletions: {
+          currentCompletions: {
             increment: 1,
-          },
-          totalRevenue: {
-            increment: task.totalReward,
           },
         },
       });
@@ -185,35 +177,32 @@ export class AdTaskService {
         where: { userId },
         create: {
           userId,
-          totalCompletions: 1,
+          totalTasksCompleted: 1,
           totalEarnings: userReward,
-          dailyCompletions: 1,
-          dailyEarnings: userReward,
-          lastResetDate: new Date(),
-          lastCompletionDate: new Date(),
-          currentStreak: 1,
-          longestStreak: 1,
+          todayTasksCompleted: 1,
+          todayEarnings: userReward,
+          lastTaskCompletedAt: new Date(),
         },
         update: {
-          totalCompletions: {
+          totalTasksCompleted: {
             increment: 1,
           },
           totalEarnings: {
             increment: userReward,
           },
-          dailyCompletions: {
+          todayTasksCompleted: {
             increment: 1,
           },
-          dailyEarnings: {
+          todayEarnings: {
             increment: userReward,
           },
-          lastCompletionDate: new Date(),
+          lastTaskCompletedAt: new Date(),
         },
       });
 
       // Set cooldown in Redis
       const cooldownKey = RedisKeys.adTaskCooldown(userId, taskId);
-      await redisClient.set(cooldownKey, '1', 'EX', task.cooldownMinutes * 60);
+      await redisClient.set(cooldownKey, '1', 'EX', task.cooldownHours * 3600); // Convert hours to seconds
 
       // Increment daily counter
       const limitKey = RedisKeys.adTaskDailyLimit(userId, taskId, dateStr);
@@ -250,24 +239,24 @@ export class AdTaskService {
     title: string;
     description: string;
     type: AdTaskType;
-    provider: string;
-    totalReward: number;
+    adNetwork: string;
+    totalEarning: number;
     dailyLimit?: number;
     totalLimit?: number;
-    cooldownMinutes?: number;
-    minPlanType?: string;
-    externalTaskId?: string;
-    metadata?: any;
+    cooldownHours?: number;
+    requiredPlan?: string;
+    adUnitId?: string;
+    trackingUrl?: string;
   }) {
-    const baseReward = Math.round((data.totalReward * (100 - AD_PLATFORM_FEE_PERCENT)) / 100);
-    const platformFee = data.totalReward - baseReward;
+    const baseReward = Math.round((data.totalEarning * (100 - AD_PLATFORM_FEE_PERCENT)) / 100);
+    const platformFee = data.totalEarning - baseReward;
 
     const task = await prisma.adTask.create({
       data: {
         ...data,
-        baseReward,
-        platformFee,
-        minPlanType: data.minPlanType as any,
+        rewardAmount: baseReward,
+        platformCommission: platformFee,
+        requiredPlan: data.requiredPlan as any,
       },
     });
 
@@ -293,9 +282,8 @@ export class AdTaskService {
       prisma.adTaskCompletion.count(),
       prisma.adTaskCompletion.aggregate({
         _sum: {
-          totalAmount: true,
-          userReward: true,
-          platformFee: true,
+          rewardAmount: true,
+          platformCommission: true,
         },
       }),
     ]);
@@ -303,11 +291,12 @@ export class AdTaskService {
     return {
       totalTasks,
       totalCompletions,
-      totalRevenue: totalRevenue._sum.totalAmount || 0,
-      totalUserRewards: totalRevenue._sum.userReward || 0,
-      totalPlatformFees: totalRevenue._sum.platformFee || 0,
+      totalRevenue: Number(totalRevenue._sum.rewardAmount || 0) + Number(totalRevenue._sum.platformCommission || 0),
+      totalUserRewards: Number(totalRevenue._sum.rewardAmount || 0),
+      totalPlatformFees: Number(totalRevenue._sum.platformCommission || 0),
     };
   }
 }
 
 export const adTaskService = new AdTaskService();
+

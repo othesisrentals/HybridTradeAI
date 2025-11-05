@@ -5,7 +5,6 @@ import { z } from 'zod';
 
 const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
-  phone: z.string().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -22,14 +21,13 @@ export async function GET(req: NextRequest) {
         id: true,
         email: true,
         name: true,
-        phone: true,
         image: true,
         role: true,
         investedBalance: true,
         withdrawalBalance: true,
         kycStatus: true,
         referralCode: true,
-        isActive: true,
+        status: true,
         createdAt: true,
         lastLoginAt: true,
       },
@@ -62,7 +60,6 @@ export async function PATCH(req: NextRequest) {
         id: true,
         email: true,
         name: true,
-        phone: true,
         image: true,
         updatedAt: true,
       },
@@ -72,7 +69,7 @@ export async function PATCH(req: NextRequest) {
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
@@ -83,3 +80,4 @@ export async function PATCH(req: NextRequest) {
     );
   }
 }
+

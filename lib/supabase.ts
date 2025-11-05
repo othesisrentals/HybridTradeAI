@@ -3,9 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
+let supabase: any;
+
 if (url && anon) {
   // Real Supabase client when env vars are present
-  export const supabase = createClient(url, anon);
+  supabase = createClient(url, anon);
 } else {
   // Mock supabase for UI preview (no real DB access). Minimal methods used by the app.
   // NOTE: This mock is only for development preview. Remove or revert before production.
@@ -22,14 +24,16 @@ if (url && anon) {
     eq: () => ({ update: async () => ({ data: null, error: null }) }),
   });
 
-  export const supabase: any = {
+  supabase = {
     auth: {
       getUser: async () => ({ data: { user: mockUser }, error: null }),
-      signInWithPassword: async ({ email }: any) => ({ data: { user: mockUser }, error: null }),
-      signUp: async ({ email }: any) => ({ data: { user: mockUser }, error: null }),
+      signInWithPassword: async () => ({ data: { user: mockUser }, error: null }),
+      signUp: async () => ({ data: { user: mockUser }, error: null }),
       signOut: async () => ({ error: null }),
     },
     from: mockFrom,
     rpc: async () => ({ data: null, error: null }),
   };
 }
+
+export { supabase };

@@ -3,10 +3,6 @@ import { prisma } from '@/lib/db/prisma';
 import { logger } from '@/lib/utils/logger';
 import { formatCurrency } from '@/lib/utils/currency';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 const COMPANY_KNOWLEDGE = `
 You are a helpful AI assistant for HybridTradeAI, an investment platform. Here's what you need to know:
 
@@ -15,7 +11,7 @@ HybridTradeAI is an AI-powered investment platform that helps users grow their w
 
 INVESTMENT PLANS:
 1. Starter Plan: $100 - $5,000 investment, 5-12% weekly ROI
-2. Pro Plan: $5,000 - $50,000 investment, 8-18% weekly ROI  
+2. Pro Plan: $5,000 - $50,000 investment, 8-18% weekly ROI
 3. Elite Plan: $50,000+ investment, 12-25% weekly ROI
 
 REVENUE STREAMS:
@@ -48,6 +44,23 @@ Always be helpful, professional, and provide accurate information based on this 
 `;
 
 export class AIService {
+  private openai: OpenAI | null = null;
+
+  private getOpenAIClient(): OpenAI {
+    if (!this.openai) {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY environment variable is required');
+      }
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    }
+    return this.openai;
+  }
+
+  /**
+   * Send a message to the AI assistant
+   */
   /**
    * Send a message to the AI assistant
    */
@@ -66,20 +79,26 @@ export class AIService {
           data: {
             userId,
             title: message.slice(0, 50),
-            messages: [],
-            userContext: await this.getUserContext(userId),
           },
         });
       }
 
-      // Build messages array
+      // Build messages array for OpenAI
       const messages: any[] = [
         { role: 'system', content: COMPANY_KNOWLEDGE },
       ];
 
       // Add conversation history
-      const history = (conversation.messages as any[]) || [];
-      messages.push(...history);
+      const history = await prisma.aIMessage.findMany({
+        where: { conversationId: conversation.id },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      // Convert history to OpenAI format
+      messages.push(...history.map(h => ({
+        role: h.role.toLowerCase(),
+        content: h.content,
+      })));
 
       // Add user context
       const context = await this.getUserContext(userId);
@@ -94,7 +113,7 @@ export class AIService {
       messages.push({ role: 'user', content: message });
 
       // Get AI response
-      const completion = await openai.chat.completions.create({
+      const completion = await this.getOpenAIClient().chat.completions.create({
         model: 'gpt-4-turbo-preview',
         messages,
         temperature: 0.7,
@@ -103,20 +122,28 @@ export class AIService {
 
       const aiResponse = completion.choices[0].message.content || 'Sorry, I could not generate a response.';
 
-      // Update conversation
-      const updatedMessages = [
-        ...history,
-        { role: 'user', content: message, timestamp: new Date().toISOString() },
-        { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() },
-      ];
+      // Save messages to database
+      await prisma.aIMessage.createMany({
+        data: [
+          {
+            conversationId: conversation.id,
+            role: 'USER',
+            content: message,
+          },
+          {
+            conversationId: conversation.id,
+            role: 'ASSISTANT',
+            content: aiResponse,
+            model: 'gpt-4-turbo-preview',
+            tokensUsed: completion.usage?.total_tokens,
+            responseTime: completion.usage ? Math.round((completion.usage.total_tokens / 1000) * 1000) : null,
+          },
+        ],
+      });
 
-      await prisma.aIConversation.update({
-        where: { id: conversation.id },
-        data: {
-          messages: updatedMessages,
-          totalMessages: updatedMessages.length,
-          lastMessageAt: new Date(),
-        },
+      logger.info('AI chat message processed', {
+        userId,
+        conversationId: conversation.id,
       });
 
       logger.info('AI chat message processed', {
@@ -154,23 +181,23 @@ export class AIService {
       prisma.profitHistory.aggregate({
         where: { userId },
         _sum: { netProfit: true },
-        _avg: { roiPercent: true },
+        _avg: { roiPercentage: true },
       }),
     ]);
 
     if (!user) return null;
 
     return {
-      totalInvested: formatCurrency(user.investedBalance),
-      availableBalance: formatCurrency(user.withdrawalBalance),
+      totalInvested: formatCurrency(Number(user.investedBalance)),
+      availableBalance: formatCurrency(Number(user.withdrawalBalance)),
       activeInvestments: investments.length,
       investments: investments.map((inv) => ({
         plan: inv.plan.name,
-        amount: formatCurrency(inv.amount),
-        earned: formatCurrency(inv.totalEarned),
+        amount: formatCurrency(Number(inv.amount)),
+        earned: formatCurrency(Number(inv.totalProfitEarned)),
       })),
-      totalEarned: formatCurrency(stats._sum.netProfit || 0),
-      averageROI: stats._avg.roiPercent?.toFixed(2) + '%' || '0%',
+      totalEarned: formatCurrency(Number(stats._sum.netProfit || 0)),
+      averageROI: stats._avg.roiPercentage?.toFixed(2) + '%' || '0%',
       kycStatus: user.kycStatus,
     };
   }
@@ -180,9 +207,15 @@ export class AIService {
    */
   async getConversations(userId: string, limit: number = 10) {
     return prisma.aIConversation.findMany({
-      where: { userId, isActive: true },
-      orderBy: { lastMessageAt: 'desc' },
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
       take: limit,
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1, // Get latest message for preview
+        },
+      },
     });
   }
 
@@ -199,9 +232,10 @@ export class AIService {
    * Delete conversation
    */
   async deleteConversation(conversationId: string, userId: string) {
+    // Soft delete by marking as resolved
     return prisma.aIConversation.update({
       where: { id: conversationId, userId },
-      data: { isActive: false },
+      data: { isResolved: true, resolvedAt: new Date() },
     });
   }
 
@@ -215,8 +249,8 @@ export class AIService {
     const managementFee = parseFloat(process.env.MANAGEMENT_FEE_PERCENT || '10');
 
     // Calculate min and max scenarios
-    const minWeeklyProfit = (amount * plan.minRoiPercent) / 100;
-    const maxWeeklyProfit = (amount * plan.maxRoiPercent) / 100;
+    const minWeeklyProfit = (amount * Number(plan.roiMin)) / 100;
+    const maxWeeklyProfit = (amount * Number(plan.roiMax)) / 100;
 
     const minWeeklyNet = minWeeklyProfit * (1 - managementFee / 100);
     const maxWeeklyNet = maxWeeklyProfit * (1 - managementFee / 100);
@@ -239,10 +273,11 @@ export class AIService {
           max: formatCurrency(amount + Math.round(maxWeeklyNet * weeks)),
         },
       },
-      roiRange: `${plan.minRoiPercent}% - ${plan.maxRoiPercent}%`,
+      roiRange: `${Number(plan.roiMin)}% - ${Number(plan.roiMax)}%`,
       managementFee: `${managementFee}%`,
     };
   }
 }
 
 export const aiService = new AIService();
+

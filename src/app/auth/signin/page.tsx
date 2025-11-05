@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { signIn } from '../../../../lib/auth'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'react-hot-toast'
+import { getRedirectPath } from '@/lib/auth/redirect'
 
 export default function SignInPage ()
 {
@@ -26,16 +27,33 @@ export default function SignInPage ()
 
     try
     {
-      const result = await signIn( formData.email, formData.password )
+      const result = await signIn( 'credentials', {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      } )
 
       if ( result?.error )
       {
         toast.error( 'Invalid email or password' )
-      } else
+      } else if ( result?.ok )
       {
         toast.success( 'Signed in successfully' )
-        router.push( '/dashboard' )
-        router.refresh()
+        
+        try {
+          // Get fresh session to retrieve user role
+          const session = await getSession()
+          
+          // Redirect based on user role using utility function
+          const redirectPath = getRedirectPath(session?.user?.role)
+          router.push(redirectPath)
+          router.refresh()
+        } catch (sessionError) {
+          console.error('Failed to fetch session:', sessionError)
+          // Fallback to dashboard if session fetch fails
+          router.push('/dashboard')
+          router.refresh()
+        }
       }
     } catch ( error )
     {

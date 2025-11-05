@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Bell, LogOut, User, Settings } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
+import { getRedirectPath } from '@/lib/auth/redirect'
 
 export function Navbar ()
 {
@@ -22,7 +23,10 @@ export function Navbar ()
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link 
+            href={getRedirectPath(session?.user?.role)} 
+            className="flex items-center gap-2"
+          >
             <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               HybridTradeAI
             </span>

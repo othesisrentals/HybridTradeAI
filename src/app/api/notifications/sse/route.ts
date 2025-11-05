@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
-import { redisSubscriber } from '@/lib/redis/client'
 import { getUnreadNotificationCount } from '@/lib/notifications/notifications'
 
 /**
@@ -35,6 +34,17 @@ export async function GET(req: NextRequest) {
         send(JSON.stringify({ type: 'unread_count', count: unreadCount }))
       } catch (error) {
         console.error('Error fetching unread count:', error)
+      }
+
+      // Lazy import Redis to avoid build-time issues
+      let redisSubscriber
+      try {
+        const { redisSubscriber: subscriber } = await import('@/lib/redis/client')
+        redisSubscriber = subscriber
+      } catch (error) {
+        console.error('Redis not available:', error)
+        controller.close()
+        return
       }
 
       // Subscribe to Redis channel
@@ -98,3 +108,4 @@ export async function GET(req: NextRequest) {
     },
   })
 }
+

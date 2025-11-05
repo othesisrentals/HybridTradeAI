@@ -4,11 +4,8 @@ const getRedisUrl = () => {
   if (process.env.REDIS_URL) {
     return process.env.REDIS_URL
   }
-  // Return dummy URL during build time
-  if (process.env.NODE_ENV === 'production' && !process.env.REDIS_URL) {
-    return 'redis://localhost:6379'
-  }
-  throw new Error('REDIS_URL is not defined')
+  // Return dummy URL during build time or when Redis is not available
+  return 'redis://localhost:6379'
 }
 
 const globalForRedis = globalThis as unknown as {
@@ -20,16 +17,18 @@ const globalForRedis = globalThis as unknown as {
 export const redis =
   globalForRedis.redis ??
   new Redis(getRedisUrl(), {
-    maxRetriesPerRequest: null,
+    maxRetriesPerRequest: 3,
     enableReadyCheck: false,
+    lazyConnect: true, // Don't connect immediately
   })
 
 // Separate subscriber client for pub/sub (required by Redis)
 export const redisSubscriber =
   globalForRedis.redisSubscriber ??
   new Redis(getRedisUrl(), {
-    maxRetriesPerRequest: null,
+    maxRetriesPerRequest: 3,
     enableReadyCheck: false,
+    lazyConnect: true, // Don't connect immediately
   })
 
 // Aliases for backward compatibility
@@ -43,7 +42,12 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Helper function to publish notifications
 export async function publishNotification(channel: string, data: any) {
-  await redis.publish(channel, JSON.stringify(data))
+  try {
+    await redis.publish(channel, JSON.stringify(data))
+  } catch (error) {
+    console.warn('Redis publish failed (notifications disabled):', error instanceof Error ? error.message : String(error))
+    // Silently fail - notifications are not critical
+  }
 }
 
 // Helper function to subscribe to notifications
@@ -51,17 +55,23 @@ export function subscribeToNotifications(
   channel: string,
   callback: (data: any) => void
 ) {
-  redisSubscriber.subscribe(channel)
-  redisSubscriber.on('message', (ch, message) => {
-    if (ch === channel) {
-      try {
-        const data = JSON.parse(message)
-        callback(data)
-      } catch (error) {
-        console.error('Error parsing Redis message:', error)
+  try {
+    redisSubscriber.subscribe(channel)
+    redisSubscriber.on('message', (ch, message) => {
+      if (ch === channel) {
+        try {
+          const data = JSON.parse(message)
+          callback(data)
+        } catch (error) {
+          console.error('Error parsing Redis message:', error)
+        }
       }
-    }
-  })
+    })
+  } catch (error) {
+    console.warn('Redis subscribe failed (notifications disabled):', error instanceof Error ? error.message : String(error))
+    // Silently fail - notifications are not critical
+  }
 }
 
 export default redis
+

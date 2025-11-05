@@ -3,7 +3,7 @@ const mockUser = {
   id: 'mock-user-id',
   email: 'dev@local',
   name: 'Development User',
-  role: 'USER' as const
+  role: 'USER' as 'USER' | 'ADMIN' | 'SUPER_ADMIN'
 };
 
 // Mock SessionProvider component
@@ -21,8 +21,8 @@ export const useSession = () => ({
 });
 
 // Additional auth utilities that might be needed
-export const signIn = async (email: string, _password: string) => {
-  console.warn('[auth] Mock signIn called with:', email);
+export const signIn = async (email: string, password?: string) => {
+  console.warn('[auth] Mock signIn called with:', email, password ? '(password provided)' : '(no password)');
   return { user: mockUser, error: null };
 };
 
@@ -31,7 +31,7 @@ export const signOut = async () => {
   return { error: null };
 };
 
-export const signUp = async (email: string, _password: string) => {
+export const signUp = async (email: string) => {
   console.warn('[auth] Mock signUp called with:', email);
   return { user: mockUser, error: null };
 };
