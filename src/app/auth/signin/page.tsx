@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -40,14 +40,20 @@ export default function SignInPage ()
       {
         toast.success( 'Signed in successfully' )
         
-        // Fetch fresh session to get user role
-        const response = await fetch('/api/auth/session')
-        const session = await response.json()
-        
-        // Redirect based on user role using utility function
-        const redirectPath = getRedirectPath(session?.user?.role)
-        router.push(redirectPath)
-        router.refresh()
+        try {
+          // Get fresh session to retrieve user role
+          const session = await getSession()
+          
+          // Redirect based on user role using utility function
+          const redirectPath = getRedirectPath(session?.user?.role)
+          router.push(redirectPath)
+          router.refresh()
+        } catch (sessionError) {
+          console.error('Failed to fetch session:', sessionError)
+          // Fallback to dashboard if session fetch fails
+          router.push('/dashboard')
+          router.refresh()
+        }
       }
     } catch ( error )
     {
