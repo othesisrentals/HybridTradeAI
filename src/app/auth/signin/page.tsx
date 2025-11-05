@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -38,7 +38,17 @@ export default function SignInPage ()
       } else if ( result?.ok )
       {
         toast.success( 'Signed in successfully' )
-        router.push( '/dashboard' )
+        
+        // Fetch session to get user role and redirect accordingly
+        const response = await fetch('/api/auth/session')
+        const session = await response.json()
+        
+        // Redirect based on user role
+        if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') {
+          router.push('/admin')
+        } else {
+          router.push('/dashboard')
+        }
         router.refresh()
       }
     } catch ( error )
