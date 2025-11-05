@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
+import { getRedirectPath } from '@/lib/auth/redirect'
 
 export default async function Home ()
 {
@@ -8,12 +9,9 @@ export default async function Home ()
 
   if ( session )
   {
-    // Redirect based on user role
-    if (session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN') {
-      redirect('/admin')
-    } else {
-      redirect('/dashboard')
-    }
+    // Redirect based on user role using utility function
+    const redirectPath = getRedirectPath(session.user.role)
+    redirect(redirectPath)
   }
 
   redirect( '/public' )

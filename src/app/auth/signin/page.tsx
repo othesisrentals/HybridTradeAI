@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'react-hot-toast'
+import { getRedirectPath } from '@/lib/auth/redirect'
 
 export default function SignInPage ()
 {
@@ -39,16 +40,13 @@ export default function SignInPage ()
       {
         toast.success( 'Signed in successfully' )
         
-        // Fetch session to get user role and redirect accordingly
+        // Fetch fresh session to get user role
         const response = await fetch('/api/auth/session')
         const session = await response.json()
         
-        // Redirect based on user role
-        if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') {
-          router.push('/admin')
-        } else {
-          router.push('/dashboard')
-        }
+        // Redirect based on user role using utility function
+        const redirectPath = getRedirectPath(session?.user?.role)
+        router.push(redirectPath)
         router.refresh()
       }
     } catch ( error )
