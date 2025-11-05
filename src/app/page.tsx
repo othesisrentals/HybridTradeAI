@@ -8,7 +8,12 @@ export default async function Home ()
 
   if ( session )
   {
-    redirect( '/dashboard' )
+    // Redirect based on user role
+    if (session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN') {
+      redirect('/admin')
+    } else {
+      redirect('/dashboard')
+    }
   }
 
   redirect( '/public' )
