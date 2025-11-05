@@ -22,7 +22,10 @@ export function Navbar ()
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link 
+            href={session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN' ? '/admin' : '/dashboard'} 
+            className="flex items-center gap-2"
+          >
             <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               HybridTradeAI
             </span>
