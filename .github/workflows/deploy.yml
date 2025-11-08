@@ -26,11 +26,14 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Run type check
-        run: npx tsc --noEmit
-
-      - name: Run linting
+      - name: Lint
         run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Security scan
+        run: npx trivy fs .
 
       - name: Build application
         run: npm run build
